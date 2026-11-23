@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { windowView, placeAt } from '../../../lib/geo';
 
 // מיקום חי בזמן אמת מרשת ה-ADS-B הקהילתית adsb.lol (חינם, בלי מפתח).
 // מטמון של 10 שניות כדי לא להעמיס על השירות.
@@ -45,6 +46,13 @@ export async function GET(request) {
         isGround: onGround
       }
     };
+    try {
+      body.view = onGround
+        ? { over: placeAt(ac.lat, ac.lon), left: null, right: null }
+        : windowView(body.live);
+    } catch {
+      body.view = null;
+    }
   }
   cache.set(callsign, { at: Date.now(), body });
   return NextResponse.json(body);

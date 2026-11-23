@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
-import LiveMap from './LiveMap';
 
 const STATUS = {
   scheduled: { text: 'מתוכננת', tone: 'good' },
@@ -209,7 +208,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft }) 
   );
 }
 
-function LiveTab({ f, now, onRefresh, loading, trail }) {
+function LiveTab({ f, now, onRefresh, loading }) {
   if (!f) {
     return (
       <>
@@ -285,7 +284,30 @@ function LiveTab({ f, now, onRefresh, loading, trail }) {
           </div>
         </section>
 
-        <LiveMap key={`${f.flight}-${f.date}`} live={live} depIata={f.departure.iata} arrIata={f.arrival.iata} trail={trail} />
+        {f.view?.over && (
+          <section className="card big" style={{ gap: 6 }}>
+            <span className="small muted">{live && !live.isGround ? 'אתה עכשיו מעל' : 'המטוס נמצא ב'}</span>
+            <span style={{ fontSize: 26, fontWeight: 800 }}>{f.view.over.name}</span>
+          </section>
+        )}
+
+        {f.view?.left && f.view?.right && (
+          <section className="card mint">
+            <h2>מה רואים מהחלון</h2>
+            {[['שמאל', f.view.left, true], ['ימין', f.view.right, false]].map(([label, s, dark]) => (
+              <div key={label} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span className="badge" style={{ background: dark ? 'var(--ink)' : '#fff', color: dark ? '#fff' : 'var(--ink)', flexShrink: 0 }}>{label}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 14, lineHeight: 1.5 }}>
+                  <span className="strong">{s.area.name}</span>
+                  {s.sights.length > 0
+                    ? s.sights.map((x) => <span key={x.name}>{x.name} · כ-{x.km} ק״מ</span>)
+                    : <span className="muted">אין נקודות ציון מוכרות בטווח הראייה</span>}
+                </div>
+              </div>
+            ))}
+            <span className="small muted">טווח ראייה מהגובה הנוכחי: עד כ-{f.view.visibleKm} ק״מ, אם אין עננים. מושב A הוא בדרך כלל חלון בצד שמאל.</span>
+          </section>
+        )}
 
         {live && !live.isGround ? (
           <div className="tiles two">
@@ -351,7 +373,6 @@ export default function Home() {
   const [now, setNow] = useState(Date.now());
   const [adsb, setAdsb] = useState(null);
   const [wasAirborne, setWasAirborne] = useState(false);
-  const [trail, setTrail] = useState([]);
 
   const search = useCallback(async (no, d) => {
     setLoading(true); setError('');
@@ -378,7 +399,7 @@ export default function Home() {
   // מיקום חי בזמן אמת מ-adsb.lol, כל 15 שניות כשהדף פתוח
   const callsign = flight?.callsign;
   useEffect(() => {
-    setAdsb(null); setWasAirborne(false); setTrail([]);
+    setAdsb(null); setWasAirborne(false);
     if (!callsign) return;
     let stop = false;
     const poll = async () => {
@@ -388,15 +409,7 @@ export default function Home() {
         const body = await res.json();
         if (!stop && res.ok && body.found) {
           setAdsb(body);
-          if (!body.live.isGround) {
-            setWasAirborne(true);
-            const pt = [body.live.latitude, body.live.longitude];
-            setTrail((t) => {
-              const last = t[t.length - 1];
-              if (last && last[0] === pt[0] && last[1] === pt[1]) return t;
-              return [...t, pt].slice(-500);
-            });
-          }
+          if (!body.live.isGround) setWasAirborne(true);
         }
       } catch {}
     };
@@ -409,6 +422,7 @@ export default function Home() {
     ? {
         ...flight,
         live: adsb.live,
+        view: adsb.view,
         liveSource: 'adsb',
         wasAirborne,
         aircraft: {
@@ -426,7 +440,7 @@ export default function Home() {
   return (
     <main className="app">
       {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} />}
-      {tab === 'live' && <LiveTab f={view} now={now} trail={trail} loading={loading} onRefresh={() => search(flightNo, date)} />}
+      {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} />}
 
       <nav className="nav" aria-label="ניווט ראשי">
