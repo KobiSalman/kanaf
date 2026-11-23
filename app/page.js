@@ -66,6 +66,20 @@ function times(f) {
   return { depAt, arrAt, arrSched };
 }
 
+function flightState(f) {
+  const departed = !!f.departure.actual || !!(f.live && !f.live.isGround);
+  const landed = f.status === 'landed' || !!f.arrival.actual;
+  return { departed, landed };
+}
+
+function statusOf(f) {
+  const { departed, landed } = flightState(f);
+  if (f.status === 'cancelled' || f.status === 'diverted' || f.status === 'incident') return STATUS[f.status];
+  if (landed) return STATUS.landed;
+  if (!departed) return { text: 'לפני המראה', tone: 'warn' };
+  return STATUS.active;
+}
+
 function SearchCard({ flightNo, setFlightNo, date, setDate, onSearch, onCancel, loading }) {
   return (
     <form className="card edit" onSubmit={(e) => { e.preventDefault(); onSearch(); }}>
@@ -88,7 +102,8 @@ function SearchCard({ flightNo, setFlightNo, date, setDate, onSearch, onCancel, 
 
 function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft }) {
   const hasFlight = !!f;
-  const st = hasFlight ? (STATUS[f.status] || { text: f.status, tone: 'warn' }) : null;
+  const st = hasFlight ? statusOf(f) : null;
+  const fs = hasFlight ? flightState(f) : null;
   const t = hasFlight ? times(f) : null;
   const left = t?.arrAt ? Math.ceil((t.arrAt - now) / 60000) : null;
   const toDep = t?.depAt ? Math.ceil((t.depAt - now) / 60000) : null;
@@ -96,11 +111,12 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft }) 
 
   let pill = 'מעקב טיסה';
   if (hasFlight) {
-    if (f.status === 'active') pill = 'בטיסה עכשיו';
-    else if (f.status === 'landed') pill = 'נחתה';
+    if (fs.landed) pill = 'נחתה';
+    else if (fs.departed) pill = 'בטיסה עכשיו';
+    else if (toDep <= 0) pill = 'ממריאה בקרוב';
     else if (toDep > 0) pill = toDep > 1440 ? `עוד ${Math.round(toDep / 1440)} ימים` : `עוד ${minutesLabel(toDep)}`;
   }
-  const title = hasFlight ? (f.status === 'landed' ? 'נחתת!' : `טסים ל${CITY[f.arrival.iata] ? cityOf(f.arrival) : '-' + f.arrival.iata}!`) : 'לאן טסים?';
+  const title = hasFlight ? (fs.landed ? 'נחתת!' : `טסים ל${CITY[f.arrival.iata] ? cityOf(f.arrival) : '-' + f.arrival.iata}!`) : 'לאן טסים?';
 
   return (
     <>
@@ -192,7 +208,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft }) 
   );
 }
 
-function LiveTab({ f, now }) {
+function LiveTab({ f, now, onRefresh, loading }) {
   if (!f) {
     return (
       <>
@@ -202,28 +218,37 @@ function LiveTab({ f, now }) {
     );
   }
   const t = times(f);
+  const { departed, landed } = flightState(f);
   const total = t.arrAt && t.depAt ? t.arrAt - t.depAt : null;
   let progress = 0;
-  if (f.status === 'landed') progress = 1;
-  else if (f.status === 'active' && total) progress = Math.min(0.99, Math.max(0.01, (now - t.depAt) / total));
+  if (landed) progress = 1;
+  else if (departed && total) progress = Math.min(0.99, Math.max(0.01, (now - t.depAt) / total));
   const left = t.arrAt ? Math.ceil((t.arrAt - now) / 60000) : null;
   const live = f.live;
 
   let phase = 0;
-  if (f.status === 'landed') phase = 4;
-  else if (f.status === 'active') {
-    if (live && live.verticalKmh > 3) phase = 1;
-    else if (live && live.verticalKmh < -3) phase = 3;
-    else phase = 2;
+  let phaseEstimated = false;
+  if (landed) phase = 4;
+  else if (departed) {
+    if (live && !live.isGround && live.verticalKmh > 3) phase = 1;
+    else if (live && !live.isGround && live.verticalKmh < -3) phase = 3;
+    else if (live && !live.isGround) phase = 2;
+    else {
+      phaseEstimated = true;
+      const since = (now - t.depAt) / 60000, until = (t.arrAt - now) / 60000;
+      phase = since < 20 ? 1 : until < 25 ? 3 : 2;
+    }
   }
+  const depTime = hhmm(f.departure.actual || f.departure.estimated || f.departure.scheduled);
   const phaseNames = ['המראה', 'טיפוס', 'שיוט', 'ירידה', 'נחיתה'];
   const phaseText = [
-    'המטוס עוד על הקרקע או רגע לפני ההמראה.',
+    `המטוס עוד על הקרקע. ההמראה מתוכננת ל-${depTime}.`,
     'המטוס מטפס לגובה השיוט. המנועים עובדים חזק, וזה רגיל לגמרי.',
     'הטייס האוטומטי מחזיק גובה ומהירות קבועים. שינויים קלים ברעש המנועים הם תיקונים רגילים.',
     'המטוס יורד בהדרגה ומאט. לחץ קל באוזניים הוא רגיל, ובליעה או פיהוק עוזרים.',
     'נחתת. ברוך הבא!'
   ];
+  const title = landed ? `${f.flight} נחתה` : departed ? `${f.flight} בשמיים!` : `${f.flight} לפני המראה`;
 
   // נקודה על קשת המסלול
   const p = progress, x = (1 - p) ** 2 * 330 + 2 * p * (1 - p) * 175 + p * p * 20;
@@ -234,7 +259,7 @@ function LiveTab({ f, now }) {
       <header className="hero short">
         <div className="cloud" style={{ right: -20, top: 96, width: 130, height: 36, opacity: 0.7 }} aria-hidden="true" />
         <div className="row">
-          <h1 style={{ fontSize: 30 }}>{f.status === 'active' ? `${f.flight} בשמיים!` : f.flight}</h1>
+          <h1 style={{ fontSize: 30 }}>{title}</h1>
           <span className="pill">{agoLabel(now - Date.parse(live?.updated || f.fetchedAt))}</span>
         </div>
         <svg width="100%" height="100" viewBox="0 0 350 100" role="img" aria-label={`התקדמות הטיסה: ${Math.round(progress * 100)} אחוז`}>
@@ -251,11 +276,11 @@ function LiveTab({ f, now }) {
         <section className="card" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span className="small muted">סטטוס</span>
-            <span style={{ fontSize: 22, fontWeight: 800 }}>{(STATUS[f.status] || { text: f.status }).text}</span>
+            <span style={{ fontSize: 22, fontWeight: 800 }}>{statusOf(f).text}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
-            <span className="small muted">נותרו</span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral-ink)' }}>{f.status === 'landed' || left <= 0 ? 'נחת' : minutesLabel(left)}</span>
+            <span className="small muted">{departed && !landed ? 'נותרו' : landed ? 'נחיתה' : 'המראה מתוכננת'}</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral-ink)' }}>{landed ? 'נחתה' : departed ? (left > 0 ? minutesLabel(left) : 'עוד רגע') : depTime}</span>
           </div>
         </section>
 
@@ -267,7 +292,7 @@ function LiveTab({ f, now }) {
             <div className="tile"><span className="label">מיקום</span><span className="value" style={{ fontSize: 16 }}>{live.latitude.toFixed(2)}°, {live.longitude.toFixed(2)}°</span></div>
           </div>
         ) : (
-          <div className="card cream">אין כרגע מיקום חי. הוא יופיע כשהמטוס באוויר.</div>
+          <div className="card cream">{landed ? 'הטיסה נחתה.' : departed ? 'מיקום חי עוד לא התקבל מהמקור. נסה לרענן בעוד כמה דקות.' : 'המיקום החי יופיע אחרי ההמראה.'}</div>
         )}
 
         <section className="card">
@@ -276,11 +301,12 @@ function LiveTab({ f, now }) {
               <div key={n} className={`phase ${i < phase ? 'done' : ''} ${i === phase ? 'now' : ''}`}><div />{n}</div>
             ))}
           </div>
-          <span className="strong">עכשיו: {phaseNames[phase]}</span>
+          <span className="strong">עכשיו: {phase === 0 ? 'לפני המראה' : phaseNames[phase]}{phaseEstimated ? ' (הערכה לפי הזמן)' : ''}</span>
           <span className="muted" style={{ fontSize: 14, lineHeight: 1.55 }}>{phaseText[phase]}</span>
         </section>
 
-        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. המיקום מתעדכן בכל חיפוש מחדש.</p>
+        <button type="button" className="btn-sun" onClick={onRefresh} disabled={loading} style={{ flex: 'none' }}>{loading ? 'מרענן…' : 'רענן נתונים'}</button>
+        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.</p>
       </div>
     </>
   );
@@ -351,7 +377,7 @@ export default function Home() {
   return (
     <main className="app">
       {tab === 'flights' && <FlightsTab f={flight} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} />}
-      {tab === 'live' && <LiveTab f={flight} now={now} />}
+      {tab === 'live' && <LiveTab f={flight} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'aircraft' && <AircraftTab f={flight} back={() => setTab('flights')} />}
 
       <nav className="nav" aria-label="ניווט ראשי">
