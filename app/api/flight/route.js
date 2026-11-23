@@ -23,7 +23,10 @@ function pick(side) {
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const flight = (searchParams.get('flight') || '').replace(/\s+/g, '').toUpperCase();
+  const raw = (searchParams.get('flight') || '').replace(/\s+/g, '').toUpperCase();
+  // ELY084 -> ELY84, LY0084 -> LY84: Aviationstack שומר מספרי טיסה בלי אפסים מובילים
+  const parts = raw.match(/^([A-Z]{3}|[A-Z0-9]{2})(\d{1,4})([A-Z]?)$/);
+  const flight = parts ? parts[1] + String(Number(parts[2])) + parts[3] : raw;
   const date = searchParams.get('date') || '';
 
   if (!/^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(flight)) {

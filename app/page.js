@@ -544,6 +544,7 @@ export default function Home() {
 
   // מיקום חי בזמן אמת מ-adsb.lol, כל 15 שניות כשהדף פתוח
   const callsign = flight?.callsign;
+  const flightReg = flight?.aircraft?.registration;
   useEffect(() => {
     setAdsb(null); setWasAirborne(false);
     if (!callsign) return;
@@ -551,7 +552,7 @@ export default function Home() {
     const poll = async () => {
       if (document.hidden) return;
       try {
-        const res = await fetch(`/api/live?callsign=${encodeURIComponent(callsign)}`);
+        const res = await fetch(`/api/live?callsign=${encodeURIComponent(callsign)}&reg=${encodeURIComponent(flightReg || '')}`);
         const body = await res.json();
         if (!stop && res.ok && body.found) {
           setAdsb(body);
@@ -562,7 +563,7 @@ export default function Home() {
     poll();
     const id = setInterval(poll, 15000);
     return () => { stop = true; clearInterval(id); };
-  }, [callsign]);
+  }, [callsign, flightReg]);
 
   // "המטוס הגיע?": בדיקה כל דקה, רק לפני ההמראה
   const [inbound, setInbound] = useState(null);
