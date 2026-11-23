@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
+import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
 
 const STATUS = {
   scheduled: { text: 'מתוכננת', tone: 'good' },
@@ -456,6 +457,12 @@ function LiveTab({ f, now, onRefresh, loading }) {
   else if (departed && total) progress = Math.min(0.99, Math.max(0.01, (now - t.depAt) / total));
   const left = t.arrAt ? Math.ceil((t.arrAt - now) / 60000) : null;
   const live = f.live;
+  let mySide = null;
+  try {
+    const seat = localStorage.getItem('kanaf:seat');
+    const info = TYPE_INFO[f.aircraft?.type];
+    mySide = seatSide(seat, info ? info.layout : '3-3')?.side || null;
+  } catch {}
 
   let phase = 0;
   let phaseEstimated = false;
@@ -525,9 +532,9 @@ function LiveTab({ f, now, onRefresh, loading }) {
         {f.view?.left && f.view?.right && (
           <section className="card mint">
             <h2>מה רואים מהחלון</h2>
-            {[['שמאל', f.view.left, true], ['ימין', f.view.right, false]].map(([label, s, dark]) => (
+            {[['שמאל', f.view.left, true, 'left'], ['ימין', f.view.right, false, 'right']].map(([label, s, dark, sideKey]) => (
               <div key={label} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span className="badge" style={{ background: dark ? 'var(--ink)' : '#fff', color: dark ? '#fff' : 'var(--ink)', flexShrink: 0 }}>{label}</span>
+                <span className="badge" style={{ background: dark ? 'var(--ink)' : '#fff', color: dark ? '#fff' : 'var(--ink)', flexShrink: 0 }}>{label}{mySide === sideKey ? ' · הצד שלך' : ''}</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 14, lineHeight: 1.5 }}>
                   <span className="strong">{s.area.name}</span>
                   {s.sights.length > 0
@@ -570,26 +577,117 @@ function LiveTab({ f, now, onRefresh, loading }) {
   );
 }
 
-function AircraftTab({ f, back }) {
+function SeatMap({ layout, seat }) {
+  const blocks = seatBlocks(layout);
+  const mine = seatSide(seat, layout);
+  const rows = 8;
+  const wingRows = [3, 4, 5];
+  return (
+    <div role="img" aria-label={`תרשים מושבים טיפוסי בתצורה ${layout}`} style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', direction: 'ltr' }}>
+      <div style={{ display: 'flex', gap: 14 }}>
+        {blocks.map((b, i) => (
+          <div key={i} style={{ display: 'flex', gap: 4 }}>
+            {b.map((l) => <span key={l} style={{ width: 24, textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>{l}</span>)}
+          </div>
+        ))}
+      </div>
+      {Array.from({ length: rows }, (_, r) => (
+        <div key={r} style={{ display: 'flex', gap: 14, alignItems: 'center', position: 'relative' }}>
+          {wingRows.includes(r) && <div aria-hidden="true" style={{ position: 'absolute', left: -26, right: -26, top: 6, height: 12, background: '#DDEBF6', borderRadius: 6, zIndex: 0 }} />}
+          {blocks.map((b, i) => (
+            <div key={i} style={{ display: 'flex', gap: 4, zIndex: 1 }}>
+              {b.map((l) => {
+                const hit = mine && mine.letter === l && r === 4;
+                return <span key={l} style={{ width: 24, height: 24, borderRadius: 7, background: hit ? 'var(--coral)' : '#fff', border: `2px solid ${hit ? 'var(--coral)' : '#CFE6F7'}` }} />;
+              })}
+            </div>
+          ))}
+        </div>
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: 12, color: 'var(--muted)', direction: 'rtl' }}>
+        <span>צד ימין</span><span>↑ חרטום המטוס</span><span>צד שמאל</span>
+      </div>
+    </div>
+  );
+}
+
+function WhereIsPlane({ f, inbound, now }) {
+  const reg = f?.aircraft?.registration;
+  if (!reg) return null;
+  const { departed, landed } = flightState(f);
+  if (departed && !landed && f.live && !f.live.isGround) {
+    return (
+      <section className="card mint">
+        <h2>איפה המטוס עכשיו</h2>
+        <span className="strong">המטוס בטיסה שלך, {f.flight}</span>
+        <span style={{ fontSize: 14 }}>{f.view?.over?.name ? `מעל ${f.view.over.name} · ` : ''}{(Math.round(f.live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')} רגל · {Math.round(f.live.speedKmh)} קמ״ש</span>
+      </section>
+    );
+  }
+  if (inbound && !inbound.error && inbound.state !== 'is_our_flight') return <InboundCard f={f} inbound={inbound} now={now} />;
+  return null;
+}
+
+function AircraftTab({ f, back, inbound, now }) {
   const type = f?.aircraft?.type;
+  const info = type ? TYPE_INFO[type] : null;
+  const [seat, setSeat] = useState('');
+  useEffect(() => { try { setSeat(localStorage.getItem('kanaf:seat') || ''); } catch {} }, []);
+  const saveSeat = (v) => { const x = v.toUpperCase().replace(/\s+/g, ''); setSeat(x); try { localStorage.setItem('kanaf:seat', x); } catch {} };
+  const mine = info ? seatSide(seat, info.layout) : null;
+
   return (
     <>
       <header className="hero peach short">
         <div className="sun" style={{ opacity: 0.85 }} aria-hidden="true" />
         <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 15 }}>→ לטיסה שלי</button>
-        <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="120" height="120" viewBox="0 0 24 24" fill="#fff" stroke="#0E2A47" strokeWidth="0.7" style={{ transform: 'rotate(-35deg)' }} aria-hidden="true">
+        <div style={{ height: 110, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="110" height="110" viewBox="0 0 24 24" fill="#fff" stroke="#0E2A47" strokeWidth="0.7" style={{ transform: 'rotate(-35deg)' }} aria-hidden="true">
             <path d="M12 2c.9 0 1.5 1.2 1.5 3v4.5l8 4.5v2l-8-2.5V18l2.5 2v1.5L12 20.5l-4 1V20l2.5-2v-4.5l-8 2.5v-2l8-4.5V5c0-1.8.6-3 1.5-3z" />
           </svg>
         </div>
         <h1 style={{ fontSize: 28 }}>{type ? (AIRCRAFT[type] || type) : 'המטוס שלך'}</h1>
-        <p style={{ color: '#4A2212' }}>{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}</p>
+        <p style={{ color: '#4A2212' }}>{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}{info ? ` · ${info.body}` : ''}</p>
       </header>
       <div className="content flat">
-        <section className="card cream">
-          <span className="strong" style={{ color: '#7A5A00' }}>✦ בקרוב</span>
-          <span style={{ lineHeight: 1.55 }}>כאן יופיעו נתונים טכניים, גיל המטוס ועובדות מעניינות על הדגם.</span>
-        </section>
+        {f && <WhereIsPlane f={f} inbound={inbound} now={now} />}
+
+        {info ? (
+          <>
+            <div className="tiles two">
+              <div className="tile"><span className="label">אורך</span><span className="value">{info.lengthM} מ׳</span></div>
+              <div className="tile"><span className="label">מוטת כנפיים</span><span className="value">{info.spanM} מ׳</span></div>
+              <div className="tile"><span className="label">טיסה ראשונה של הדגם</span><span className="value">{info.firstFlight}</span></div>
+              <div className="tile"><span className="label">תצורה טיפוסית</span><span className="value" style={{ direction: 'ltr', textAlign: 'right' }}>{info.layout}</span></div>
+            </div>
+
+            <section className="card cream">
+              <span className="strong" style={{ color: '#7A5A00' }}>✦ הידעת?</span>
+              <span style={{ lineHeight: 1.55 }}>{info.fact}</span>
+            </section>
+
+            <section className="card">
+              <h2>איפה אני יושב?</h2>
+              <div className="field">
+                <label htmlFor="seatNo">מספר המושב שלך</label>
+                <input id="seatNo" value={seat} onChange={(e) => saveSeat(e.target.value)} placeholder="לדוגמה 32A" maxLength={3} />
+              </div>
+              {mine && (
+                <span className="strong" style={{ fontSize: 16, color: mine.kind === 'window' ? 'var(--good)' : 'var(--ink)' }}>
+                  {seat}: {mine.text}{mine.kind === 'window' ? ' · בלשונית "בטיסה" תראה מה רואים מהצד שלך' : ''}
+                </span>
+              )}
+              {seat && !mine && <span className="muted" style={{ fontSize: 14 }}>לא הצלחנו לזהות את המושב. כתוב מספר שורה ואות, למשל 32A.</span>}
+              <SeatMap layout={info.layout} seat={seat} />
+              <span className="small muted">תרשים כללי של תצורה {info.layout}, לא המפה של חברת התעופה שלך. הפס הכחול מסמן בערך את אזור הכנף. החברות משנות את מספר השורות ואת האותיות, אבל A הוא כמעט תמיד חלון בצד שמאל.</span>
+              <a href="https://www.aerolopa.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)' }}>מפת מושבים מדויקת לפי חברת תעופה (aeroLOPA) ←</a>
+            </section>
+          </>
+        ) : (
+          <section className="card cream">
+            <span style={{ lineHeight: 1.55 }}>{type ? 'אין לנו עדיין נתונים על הדגם הזה.' : 'כשחברת התעופה תשבץ מטוס לטיסה, יופיעו כאן הדגם, הנתונים ותרשים המושבים.'}</span>
+          </section>
+        )}
       </div>
     </>
   );
@@ -699,7 +797,7 @@ export default function Home() {
       {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}
       {tab === 'status' && <StatusTab />}
-      {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} />}
+      {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} inbound={inbound} now={now} />}
 
       <nav className="nav" aria-label="ניווט ראשי">
         <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon /></span>טיסות</button>
