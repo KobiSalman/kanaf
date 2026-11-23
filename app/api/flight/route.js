@@ -70,6 +70,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     flight: chosen.flight?.iata || flight,
+    callsign: chosen.flight?.icao || null,
     airline: chosen.airline?.name || null,
     date: chosen.flight_date,
     status: chosen.flight_status,

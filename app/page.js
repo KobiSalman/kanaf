@@ -67,8 +67,8 @@ function times(f) {
 }
 
 function flightState(f) {
-  const departed = !!f.departure.actual || !!(f.live && !f.live.isGround);
-  const landed = f.status === 'landed' || !!f.arrival.actual;
+  const departed = !!f.departure.actual || !!(f.live && !f.live.isGround) || !!f.wasAirborne;
+  const landed = f.status === 'landed' || !!f.arrival.actual || !!(f.wasAirborne && f.live && f.live.isGround);
   return { departed, landed };
 }
 
@@ -306,7 +306,7 @@ function LiveTab({ f, now, onRefresh, loading }) {
         </section>
 
         <button type="button" className="btn-sun" onClick={onRefresh} disabled={loading} style={{ flex: 'none' }}>{loading ? 'מרענן…' : 'רענן נתונים'}</button>
-        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.</p>
+        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל 15 שניות.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}</p>
       </div>
     </>
   );
@@ -346,6 +346,8 @@ export default function Home() {
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState('flights');
   const [now, setNow] = useState(Date.now());
+  const [adsb, setAdsb] = useState(null);
+  const [wasAirborne, setWasAirborne] = useState(false);
 
   const search = useCallback(async (no, d) => {
     setLoading(true); setError('');
@@ -369,6 +371,41 @@ export default function Home() {
     return () => clearInterval(id);
   }, [search]);
 
+  // מיקום חי בזמן אמת מ-adsb.lol, כל 15 שניות כשהדף פתוח
+  const callsign = flight?.callsign;
+  useEffect(() => {
+    setAdsb(null); setWasAirborne(false);
+    if (!callsign) return;
+    let stop = false;
+    const poll = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch(`/api/live?callsign=${encodeURIComponent(callsign)}`);
+        const body = await res.json();
+        if (!stop && res.ok && body.found) {
+          setAdsb(body);
+          if (!body.live.isGround) setWasAirborne(true);
+        }
+      } catch {}
+    };
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => { stop = true; clearInterval(id); };
+  }, [callsign]);
+
+  const view = flight && adsb
+    ? {
+        ...flight,
+        live: adsb.live,
+        liveSource: 'adsb',
+        wasAirborne,
+        aircraft: {
+          type: flight.aircraft?.type || adsb.type,
+          registration: adsb.registration || flight.aircraft?.registration
+        }
+      }
+    : flight;
+
   const searchCard = (
     <SearchCard flightNo={flightNo} setFlightNo={setFlightNo} date={date} setDate={setDate} loading={loading}
       onSearch={() => search(flightNo, date)} onCancel={flight ? () => setEditing(false) : null} />
@@ -376,9 +413,9 @@ export default function Home() {
 
   return (
     <main className="app">
-      {tab === 'flights' && <FlightsTab f={flight} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} />}
-      {tab === 'live' && <LiveTab f={flight} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
-      {tab === 'aircraft' && <AircraftTab f={flight} back={() => setTab('flights')} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} />}
+      {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
+      {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} />}
 
       <nav className="nav" aria-label="ניווט ראשי">
         <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon /></span>טיסות</button>
