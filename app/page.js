@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
+import LiveMap from './LiveMap';
 
 const STATUS = {
   scheduled: { text: 'מתוכננת', tone: 'good' },
@@ -208,7 +209,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft }) 
   );
 }
 
-function LiveTab({ f, now, onRefresh, loading }) {
+function LiveTab({ f, now, onRefresh, loading, trail }) {
   if (!f) {
     return (
       <>
@@ -284,6 +285,8 @@ function LiveTab({ f, now, onRefresh, loading }) {
           </div>
         </section>
 
+        <LiveMap key={`${f.flight}-${f.date}`} live={live} depIata={f.departure.iata} arrIata={f.arrival.iata} trail={trail} />
+
         {live && !live.isGround ? (
           <div className="tiles two">
             <div className="tile"><span className="label">גובה</span><span className="value">{(Math.round(live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')} רגל</span><span className="small muted">כ-{(live.altitudeM / 1000).toFixed(1)} ק״מ</span></div>
@@ -348,6 +351,7 @@ export default function Home() {
   const [now, setNow] = useState(Date.now());
   const [adsb, setAdsb] = useState(null);
   const [wasAirborne, setWasAirborne] = useState(false);
+  const [trail, setTrail] = useState([]);
 
   const search = useCallback(async (no, d) => {
     setLoading(true); setError('');
@@ -374,7 +378,7 @@ export default function Home() {
   // מיקום חי בזמן אמת מ-adsb.lol, כל 15 שניות כשהדף פתוח
   const callsign = flight?.callsign;
   useEffect(() => {
-    setAdsb(null); setWasAirborne(false);
+    setAdsb(null); setWasAirborne(false); setTrail([]);
     if (!callsign) return;
     let stop = false;
     const poll = async () => {
@@ -384,7 +388,15 @@ export default function Home() {
         const body = await res.json();
         if (!stop && res.ok && body.found) {
           setAdsb(body);
-          if (!body.live.isGround) setWasAirborne(true);
+          if (!body.live.isGround) {
+            setWasAirborne(true);
+            const pt = [body.live.latitude, body.live.longitude];
+            setTrail((t) => {
+              const last = t[t.length - 1];
+              if (last && last[0] === pt[0] && last[1] === pt[1]) return t;
+              return [...t, pt].slice(-500);
+            });
+          }
         }
       } catch {}
     };
@@ -414,7 +426,7 @@ export default function Home() {
   return (
     <main className="app">
       {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} />}
-      {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
+      {tab === 'live' && <LiveTab f={view} now={now} trail={trail} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} />}
 
       <nav className="nav" aria-label="ניווט ראשי">
