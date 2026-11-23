@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
+import { AIRCRAFT } from '../lib/aviation';
 
 const STATUS = {
   scheduled: { text: 'מתוכננת', tone: 'good' },
@@ -12,14 +13,6 @@ const STATUS = {
   diverted: { text: 'הוסטה', tone: 'warn' }
 };
 
-const AIRCRAFT = {
-  B789: 'Boeing 787-9 Dreamliner', B788: 'Boeing 787-8 Dreamliner', B78X: 'Boeing 787-10 Dreamliner',
-  B738: 'Boeing 737-800', B739: 'Boeing 737-900', B38M: 'Boeing 737 MAX 8', B39M: 'Boeing 737 MAX 9',
-  B77W: 'Boeing 777-300ER', B772: 'Boeing 777-200', B763: 'Boeing 767-300', B744: 'Boeing 747-400', B748: 'Boeing 747-8',
-  A320: 'Airbus A320', A20N: 'Airbus A320neo', A321: 'Airbus A321', A21N: 'Airbus A321neo', A319: 'Airbus A319',
-  A333: 'Airbus A330-300', A332: 'Airbus A330-200', A359: 'Airbus A350-900', A35K: 'Airbus A350-1000', A388: 'Airbus A380',
-  E190: 'Embraer E190', E195: 'Embraer E195', E75L: 'Embraer E175', AT76: 'ATR 72-600'
-};
 
 const CITY = {
   TLV: 'תל אביב', ETM: 'אילת', LHR: 'לונדון', LTN: 'לונדון', STN: 'לונדון', LGW: 'לונדון', CDG: 'פריז', ORY: 'פריז',
@@ -100,7 +93,156 @@ function SearchCard({ flightNo, setFlightNo, date, setDate, onSearch, onCancel, 
   );
 }
 
-function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft }) {
+function InboundCard({ f, inbound, now }) {
+  if (!inbound || inbound.error) return null;
+  const reg = f.aircraft?.registration;
+  const from = f.departure.iata;
+  const s = inbound.state;
+  let title = '', text = '', tone = null, extra = null;
+
+  if (s === 'silent') {
+    title = 'המטוס לא משדר כרגע';
+    text = `${reg} לא משדר מיקום. בדרך כלל זה אומר שהוא חונה ומנועיו כבויים, למשל כבר בשדה שממנו תמריא.`;
+  } else if (s === 'at_airport') {
+    title = 'המטוס כבר בשדה ✓';
+    text = `${reg} נמצא ב-${from}. זה סימן טוב להמראה בזמן.`;
+    tone = 'good';
+  } else if (s === 'ground_elsewhere') {
+    title = 'המטוס על הקרקע בשדה אחר';
+    text = `${reg} נמצא כ-${inbound.distKm} ק״מ מ-${from}. הוא יצטרך לטוס לכאן לפני הטיסה שלך.`;
+    tone = 'warn';
+  } else if (s === 'inbound') {
+    title = 'המטוס בדרך אליך';
+    text = `${reg} טס עכשיו${inbound.nowCallsign ? ` כ-${inbound.nowCallsign}` : ''}, כ-${inbound.distKm} ק״מ מ-${from}, וצפוי לנחות בעוד כ-${minutesLabel(inbound.etaMin)}.`;
+    const depAt = localToInstant(f.departure.estimated || f.departure.scheduled, f.departure.timezone);
+    const readyAt = Date.parse(inbound.checkedAt) + (inbound.etaMin + 45) * 60000;
+    const late = depAt ? Math.round((readyAt - depAt) / 60000) : null;
+    if (late != null && late > 5) { tone = 'bad'; extra = `ההמראה שלך עלולה להתעכב בכ-${minutesLabel(late)}`; }
+    else if (late != null) { tone = 'good'; extra = 'יש מספיק זמן להכנה בין הטיסות'; }
+  } else if (s === 'flying_elsewhere') {
+    title = 'המטוס טס עכשיו לכיוון אחר';
+    text = `${reg} באוויר${inbound.nowCallsign ? ` כ-${inbound.nowCallsign}` : ''}, כ-${inbound.distKm} ק״מ מ-${from}, ולא בכיוון אליו. ייתכן שזו טיסה קודמת שעוד תחזור, או שחברת התעופה תחליף מטוס.`;
+    tone = 'warn';
+  } else if (s === 'is_our_flight') {
+    return null;
+  } else {
+    title = inbound.onGround ? 'המטוס על הקרקע' : 'המטוס באוויר';
+    text = `לא הצלחנו לזהות את מיקום שדה ${from}, ולכן אין הערכה.`;
+  }
+
+  return (
+    <section className="card">
+      <div className="row">
+        <h2>המטוס הגיע?</h2>
+        {tone && <span className={`badge ${tone}`}>{tone === 'good' ? 'בסדר' : tone === 'bad' ? 'עיכוב אפשרי' : 'לשים לב'}</span>}
+      </div>
+      <span className="strong" style={{ fontSize: 17 }}>{title}</span>
+      <span style={{ fontSize: 14, lineHeight: 1.55 }}>{text}</span>
+      {extra && <span className="strong" style={{ fontSize: 14, color: tone === 'bad' ? '#8A2412' : 'var(--good)' }}>{extra}</span>}
+      <span className="small muted">הערכה בלבד, לפי מיקום המטוס בזמן אמת (adsb.lol) וזמן הכנה של כ-45 דק׳ בין טיסות · {agoLabel(now - Date.parse(inbound.checkedAt))}</span>
+    </section>
+  );
+}
+
+const TLV_COORDS = { lat: 32.0114, lon: 34.8867, label: 'נתב״ג' };
+
+function NearbyTab({ now }) {
+  const [where, setWhere] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
+  const locate = useCallback(() => {
+    if (!navigator.geolocation) { setStatus('denied'); return; }
+    setStatus('locating');
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setWhere({ lat: p.coords.latitude, lon: p.coords.longitude, label: 'המיקום שלך' }); setStatus('ready'); },
+      () => setStatus('denied'),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  }, []);
+
+  useEffect(() => { locate(); }, [locate]);
+
+  useEffect(() => {
+    if (!where) return;
+    let stop = false;
+    const load = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch(`/api/nearby?lat=${where.lat}&lon=${where.lon}`);
+        const body = await res.json();
+        if (stop) return;
+        if (!res.ok) setError(body.error || 'משהו השתבש');
+        else { setData(body); setError(''); }
+      } catch { if (!stop) setError('אין חיבור לאינטרנט'); }
+    };
+    load();
+    const id = setInterval(load, 20000);
+    return () => { stop = true; clearInterval(id); };
+  }, [where]);
+
+  const planes = data?.planes || [];
+  const flying = planes.filter((p) => !p.onGround);
+  const ground = planes.filter((p) => p.onGround);
+
+  return (
+    <>
+      <header className="hero short">
+        <Clouds />
+        <span className="pill">{where ? where.label : 'מאתר מיקום…'} ✦</span>
+        <h1>מה טס מעליי?</h1>
+        <p>{data ? `${flying.length} מטוסים באוויר ברדיוס ${data.radiusKm} ק״מ` : 'כל המטוסים סביבך, בזמן אמת'}</p>
+      </header>
+      <div className="content flat">
+        {status === 'denied' && !where && (
+          <section className="card cream">
+            <span className="strong">אין גישה למיקום</span>
+            <span style={{ fontSize: 14 }}>אפשר לאשר גישה למיקום בדפדפן, או לראות מה טס עכשיו ליד נתב״ג.</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn-sun" onClick={() => { setWhere(TLV_COORDS); setStatus('ready'); }}>הצג ליד נתב״ג</button>
+              <button type="button" className="btn-ghost" onClick={locate}>נסה שוב</button>
+            </div>
+          </section>
+        )}
+        {status === 'locating' && <div className="card">מאתר את המיקום שלך…</div>}
+        {error && <div className="error" role="alert">{error}</div>}
+        {data && planes.length === 0 && <div className="card">אין כרגע מטוסים משדרים באזור.</div>}
+
+        {flying.map((p) => (
+          <section key={p.id} className="card" style={{ gap: 6 }}>
+            <div className="row">
+              <span style={{ fontSize: 18, fontWeight: 800 }}>{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> · {p.airline}</span> : null}</span>
+              <span className="badge good">{p.distKm} ק״מ{p.fromYou ? ` · ${p.fromYou}` : ''}</span>
+            </div>
+            <span style={{ fontSize: 14 }}>{p.type ? (AIRCRAFT[p.type] || p.type) : 'דגם לא ידוע'}{p.registration && p.callsign ? ` · ${p.registration}` : ''}</span>
+            <span className="muted" style={{ fontSize: 13 }}>
+              {p.altFt.toLocaleString('en-US')} רגל · {p.speedKmh} קמ״ש
+              {p.verticalFpm > 300 ? ' · מטפס' : p.verticalFpm < -300 ? ' · יורד' : ''}
+              {p.heading ? ` · טס ל${p.heading}` : ''}
+            </span>
+          </section>
+        ))}
+
+        {ground.length > 0 && (
+          <section className="card">
+            <h2>על הקרקע ({ground.length})</h2>
+            {ground.map((p) => (
+              <div key={p.id} className="row">
+                <span>{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? ` · ${p.airline}` : ''}</span>
+                <span className="muted">{p.type ? (AIRCRAFT[p.type] || p.type) : ''}</span>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {data && <p className="small muted" style={{ margin: 0 }}>נתונים בזמן אמת מרשת ADS-B (adsb.lol), מתעדכנים כל 20 שניות · {agoLabel(now - Date.parse(data.at))}. מטוסים צבאיים או פרטיים לא תמיד משדרים זיהוי.</p>}
+      </div>
+    </>
+  );
+}
+
+function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound }) {
   const hasFlight = !!f;
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
@@ -183,6 +325,8 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft }) 
                 </div>
               </button>
             )}
+
+            {!fs.departed && f.aircraft?.registration && <InboundCard f={f} inbound={inbound} now={now} />}
 
             <section className="card">
               <h2>הזמנים</h2>
@@ -314,7 +458,9 @@ function LiveTab({ f, now, onRefresh, loading }) {
             <div className="tile"><span className="label">גובה</span><span className="value">{(Math.round(live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')} רגל</span><span className="small muted">כ-{(live.altitudeM / 1000).toFixed(1)} ק״מ</span></div>
             <div className="tile"><span className="label">מהירות קרקע</span><span className="value">{Math.round(live.speedKmh)} קמ״ש</span></div>
             <div className="tile"><span className="label">כיוון טיסה</span><span className="value">{Math.round(live.direction)}°</span></div>
-            <div className="tile"><span className="label">מיקום</span><span className="value" style={{ fontSize: 16 }}>{live.latitude.toFixed(2)}°, {live.longitude.toFixed(2)}°</span></div>
+            {typeof live.outsideC === 'number'
+              ? <div className="tile"><span className="label">טמפרטורה בחוץ</span><span className="value">{'\u200e'}{Math.round(live.outsideC)}°C</span></div>
+              : <div className="tile"><span className="label">מיקום</span><span className="value" style={{ fontSize: 16 }}>{live.latitude.toFixed(2)}°, {live.longitude.toFixed(2)}°</span></div>}
           </div>
         ) : (
           <div className="card cream">{landed ? 'הטיסה נחתה.' : departed ? 'מיקום חי עוד לא התקבל מהמקור. נסה לרענן בעוד כמה דקות.' : 'המיקום החי יופיע אחרי ההמראה.'}</div>
@@ -418,6 +564,28 @@ export default function Home() {
     return () => { stop = true; clearInterval(id); };
   }, [callsign]);
 
+  // "המטוס הגיע?": בדיקה כל דקה, רק לפני ההמראה
+  const [inbound, setInbound] = useState(null);
+  const reg = adsb?.registration || flight?.aircraft?.registration;
+  const departed = !!flight?.departure?.actual || wasAirborne;
+  useEffect(() => {
+    setInbound(null);
+    if (!reg || !flight || departed) return;
+    let stop = false;
+    const load = async () => {
+      if (document.hidden) return;
+      try {
+        const q = `reg=${encodeURIComponent(reg)}&from=${encodeURIComponent(flight.departure.iata)}&callsign=${encodeURIComponent(flight.callsign || '')}`;
+        const res = await fetch(`/api/inbound?${q}`);
+        const body = await res.json();
+        if (!stop && res.ok) setInbound(body);
+      } catch {}
+    };
+    load();
+    const id = setInterval(load, 60000);
+    return () => { stop = true; clearInterval(id); };
+  }, [reg, flight?.flight, flight?.date, departed]);
+
   const view = flight && adsb
     ? {
         ...flight,
@@ -439,13 +607,15 @@ export default function Home() {
 
   return (
     <main className="app">
-      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} />}
       {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
+      {tab === 'nearby' && <NearbyTab now={now} />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} />}
 
       <nav className="nav" aria-label="ניווט ראשי">
         <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon /></span>טיסות</button>
         <button type="button" className={tab === 'live' ? 'active' : ''} onClick={() => setTab('live')}><span><GaugeIcon /></span>בטיסה</button>
+        <button type="button" className={tab === 'nearby' ? 'active' : ''} onClick={() => setTab('nearby')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg></span>מעליי</button>
         <button type="button" className={tab === 'aircraft' ? 'active' : ''} onClick={() => setTab('aircraft')}><span><TopIcon /></span>המטוס</button>
       </nav>
     </main>

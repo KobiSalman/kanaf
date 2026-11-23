@@ -43,7 +43,8 @@ export async function GET(request) {
         speedKmh: (ac.gs || 0) * 1.852,
         verticalKmh: (ac.baro_rate || 0) * 0.018288,
         direction: ac.track ?? 0,
-        isGround: onGround
+        isGround: onGround,
+        outsideC: typeof ac.oat === 'number' ? ac.oat : null
       }
     };
     try {
