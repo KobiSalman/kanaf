@@ -27,7 +27,7 @@ export async function GET(request) {
   const date = searchParams.get('date') || '';
 
   if (!/^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(flight)) {
-    return NextResponse.json({ error: 'מספר טיסה לא תקין. לדוגמה: LY315' }, { status: 400 });
+    return NextResponse.json({ error: 'מספר טיסה לא תקין. לדוגמה: LY315 או ELY315' }, { status: 400 });
   }
   const key = process.env.AVIATIONSTACK_KEY;
   if (!key) {
@@ -37,7 +37,9 @@ export async function GET(request) {
   const cacheKey = flight;
   let payload = cache.get(cacheKey);
   if (!payload || Date.now() - payload.at > TTL_MS) {
-    const url = `https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&flight_iata=${flight}&limit=20`;
+    // 3 אותיות + מספר = קוד ICAO (למשל ISR730), 2 תווים + מספר = קוד IATA (למשל 6H730)
+    const param = /^[A-Z]{3}\d/.test(flight) ? 'flight_icao' : 'flight_iata';
+    const url = `https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&${param}=${flight}&limit=20`;
     let res;
     try {
       res = await fetch(url, { cache: 'no-store' });
