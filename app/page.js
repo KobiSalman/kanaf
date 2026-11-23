@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
 import { AIRCRAFT } from '../lib/aviation';
+import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 
 const STATUS = {
   scheduled: { text: 'מתוכננת', tone: 'good' },
@@ -242,7 +243,92 @@ function NearbyTab({ now }) {
   );
 }
 
-function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound }) {
+function AirlineAlert({ f, goStatus }) {
+  const r = assessFlight(f);
+  if (!r || r.level === 'ok') return null;
+  const bad = r.level === 'bad';
+  return (
+    <section className="card" style={{ background: bad ? '#FFD9D2' : 'var(--cream)', gap: 6 }} role="alert">
+      <span className="strong" style={{ fontSize: 17, color: bad ? '#8A2412' : '#5C4A12' }}>{r.title}</span>
+      {r.text && <span style={{ fontSize: 14, lineHeight: 1.55 }}>{r.text}</span>}
+      <span style={{ fontSize: 14 }}>כדאי לבדוק מול חברת התעופה אם הטיסה שלך מתקיימת, ומה מגיע לך אם היא בוטלה.</span>
+      <button type="button" className="btn-ghost" onClick={goStatus} style={{ alignSelf: 'flex-start' }}>מי עוד טס? ←</button>
+    </section>
+  );
+}
+
+function StatusTab() {
+  const [q, setQ] = useState('');
+  const list = AIRLINE_STATUS.airlines.filter((a, i, arr) => arr.findIndex((b) => b.name === a.name) === i);
+  const match = (a) => !q || a.name.includes(q) || a.iata.includes(q.toUpperCase()) || (a.icao || '').includes(q.toUpperCase());
+  const suspended = list.filter((a) => a.status === 'suspended' && match(a));
+  const returning = list.filter((a) => a.status === 'returning' && match(a));
+  const flying = list.filter((a) => a.status === 'flying' && match(a));
+  const routeIssues = list.filter((a) => (a.routes || []).some((r) => r.status === 'suspended') && match(a));
+
+  const Row = ({ a, extra }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 8, borderBottom: '1px solid #EAF1F7' }}>
+      <div className="row"><span className="strong">{a.name}</span><span className="muted small">{a.iata}</span></div>
+      {extra && <span style={{ fontSize: 14 }}>{extra}</span>}
+      {a.note && <span className="muted" style={{ fontSize: 13 }}>{a.note}</span>}
+    </div>
+  );
+
+  return (
+    <>
+      <header className="hero short">
+        <Clouds />
+        <span className="pill">עודכן {heDate(AIRLINE_STATUS.updatedAt)} ✦</span>
+        <h1>מי טס עכשיו?</h1>
+        <p>{flying.length} חברות טסות · {returning.length} חוזרות בקרוב · {suspended.length} לא טסות</p>
+      </header>
+      <div className="content flat">
+        <div className="field">
+          <label htmlFor="airlineSearch">חיפוש חברת תעופה</label>
+          <input id="airlineSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="לדוגמה: וויז או LH" />
+        </div>
+
+        {suspended.length > 0 && (
+          <section className="card" style={{ background: '#FFE9E4' }}>
+            <h2>לא טסות כרגע לישראל</h2>
+            {suspended.map((a) => <Row key={a.iata} a={a} extra={a.until ? `מושהה עד ${heDate(a.until)}` : 'מושהה עד הודעה חדשה'} />)}
+          </section>
+        )}
+
+        {returning.length > 0 && (
+          <section className="card cream">
+            <h2>חוזרות בקרוב</h2>
+            {returning.map((a) => <Row key={a.iata} a={a} extra={a.date ? `חוזרת ב-${heDate(a.date)}` : 'מועד החזרה טרם נקבע סופית'} />)}
+          </section>
+        )}
+
+        {routeIssues.length > 0 && (
+          <section className="card cream">
+            <h2>קווים מושהים</h2>
+            {routeIssues.flatMap((a) => (a.routes || []).filter((r) => r.status === 'suspended').map((r) => (
+              <Row key={a.iata + r.iata} a={{ ...a, note: r.note }} extra={`${r.iata}${r.until ? ` · עד ${heDate(r.until)}` : ''}`} />
+            )))}
+          </section>
+        )}
+
+        <section className="card mint">
+          <h2>טסות לישראל</h2>
+          {flying.map((a) => <Row key={a.iata} a={a} />)}
+        </section>
+
+        <section className="card">
+          <h2>מקורות</h2>
+          {AIRLINE_STATUS.sources.map((s) => (
+            <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'var(--coral-ink)' }}>{s.title} ({heDate(s.date)})</a>
+          ))}
+          <span className="small muted">המצב משתנה מהר. לפני הטיסה תמיד כדאי לבדוק גם באתר של חברת התעופה.</span>
+        </section>
+      </div>
+    </>
+  );
+}
+
+function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound, goStatus }) {
   const hasFlight = !!f;
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
@@ -280,6 +366,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
 
         {hasFlight && (
           <>
+            <AirlineAlert f={f} goStatus={goStatus} />
             <section className="card big">
               <div className="row">
                 <span className="muted">{f.date} · {f.flight}{f.airline ? ` · ${f.airline}` : ''}</span>
@@ -608,16 +695,17 @@ export default function Home() {
 
   return (
     <main className="app">
-      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} goStatus={() => setTab('status')} />}
       {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}
+      {tab === 'status' && <StatusTab />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} />}
 
       <nav className="nav" aria-label="ניווט ראשי">
         <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon /></span>טיסות</button>
         <button type="button" className={tab === 'live' ? 'active' : ''} onClick={() => setTab('live')}><span><GaugeIcon /></span>בטיסה</button>
         <button type="button" className={tab === 'nearby' ? 'active' : ''} onClick={() => setTab('nearby')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg></span>מעליי</button>
-        <button type="button" className={tab === 'aircraft' ? 'active' : ''} onClick={() => setTab('aircraft')}><span><TopIcon /></span>המטוס</button>
+        <button type="button" className={tab === 'status' ? 'active' : ''} onClick={() => setTab('status')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6l1 1 2-2M3 12l1 1 2-2M3 18h3" /></svg></span>מי טס</button>
       </nav>
     </main>
   );
