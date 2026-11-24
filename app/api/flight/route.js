@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cacheGet, cacheSet } from '../../../lib/cache';
 import { localToInstant } from '../../../lib/time';
 import { lookupLive, CALLSIGN_RE } from '../../../lib/adsb';
+import { iaaFlight } from '../../../lib/iaa';
 import { airlineOf } from '../../../lib/aviation';
 import STATUS from '../../../data/airlines-status.json';
 
@@ -95,6 +96,12 @@ export async function GET(request) {
   if (!isFlightNumber) {
     return NextResponse.json({ error: 'מספר טיסה לא תקין. לדוגמה: LY315, ELY315 או אות קריאה כמו LOT2YE' }, { status: 400 });
   }
+  // 1. לוח נתב״ג של רשות שדות התעופה: חינמי, רשמי, ומכסה כל טיסה מישראל ואליה
+  let iaa = null;
+  try { iaa = await iaaFlight(flight, date); } catch {}
+  if (iaa?.flight) return NextResponse.json(iaa.flight);
+
+  // 2. טיסה שלא עוברת בישראל (או שאינה בלוח): Aviationstack
   const key = process.env.AVIATIONSTACK_KEY;
   if (!key) {
     return NextResponse.json({ error: 'חסר מפתח API בשרת (AVIATIONSTACK_KEY)' }, { status: 500 });
@@ -128,6 +135,9 @@ export async function GET(request) {
       if (/^[A-Z]{3}\d/.test(flight)) {
         const lo = await liveOnly(flight, date, quota ? 'quota' : 'unavailable');
         if (lo) return NextResponse.json(lo);
+      }
+      if (iaa?.dates?.length) {
+        return NextResponse.json({ error: `לא מצאנו את ${flight} בתאריך הזה בלוח של נתב״ג. תאריכים זמינים: ${iaa.dates.join(', ')}` }, { status: 404 });
       }
       const msg = quota
         ? 'נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו. אם הטיסה באוויר עכשיו, נסה לחפש לפי קוד ICAO (למשל ELY315).'
