@@ -218,7 +218,8 @@ function NearbyTab({ now }) {
             </div>
           </section>
         )}
-        {status === 'locating' && <div className="card">מאתר את המיקום שלך…</div>}
+        {status === 'locating' && <section className="card"><PlaneLoader text="מאתר את המיקום שלך…" /></section>}
+        {where && !data && !error && <section className="card"><PlaneLoader text="מחפש מטוסים סביבך…" /></section>}
         {error && <div className="error" role="alert">{error}</div>}
         {data && planes.length === 0 && <div className="card">אין כרגע מטוסים משדרים באזור.</div>}
 
@@ -343,7 +344,20 @@ function StatusTab() {
   );
 }
 
-function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound, goStatus, goLive }) {
+function PlaneLoader({ text, small = false }) {
+  return (
+    <div className={`loader ${small ? 'small' : ''}`} role="status" aria-live="polite">
+      <div className="orbit" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#FF7A59" stroke="#fff" strokeWidth="1" style={{ transform: 'rotate(90deg)' }}>
+          <path d="M12 2c.9 0 1.5 1.2 1.5 3v4.5l8 4.5v2l-8-2.5V18l2.5 2v1.5L12 20.5l-4 1V20l2.5-2v-4.5l-8 2.5v-2l8-4.5V5c0-1.8.6-3 1.5-3z" />
+        </svg>
+      </div>
+      {text && <span className="muted" style={{ fontSize: small ? 13 : 15 }}>{text}</span>}
+    </div>
+  );
+}
+
+function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound, goStatus, goLive, loading, liveLoading }) {
   const hasFlight = !!f;
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
@@ -393,7 +407,8 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
       </header>
 
       <div className="content">
-        {(editing || !hasFlight) && search}
+        {loading && !editing && <section className="card big"><PlaneLoader text="טוען את הטיסה…" /></section>}
+        {(editing || (!hasFlight && !loading)) && search}
         {error && <div className="error" role="alert">{error}</div>}
 
         {hasFlight && f.liveOnly && (
@@ -520,11 +535,14 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
                   <span style={{ fontSize: 13, color: '#6B3A2A' }}>{f.aircraft?.type ? 'תטוס ב-' : 'המטוס של הטיסה'}</span>
                   <span style={{ fontSize: 17, fontWeight: 800 }}>{f.aircraft?.type ? `${AIRCRAFT[f.aircraft.type] || f.aircraft.type}${f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}` : 'המטוס עוד לא זוהה'}</span>
                   <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)' }}>{f.aircraft?.type ? 'הכר את המטוס שלך ←' : 'מושב, תרשים ופרטים יופיעו כשהמטוס יזוהה ←'}</span>
+                  {!f.aircraft?.type && liveLoading && <PlaneLoader small text="מחפש את המטוס…" />}
                 </div>
               </button>
             )}
 
-            {!fs.departed && f.aircraft?.registration && <InboundCard f={f} inbound={inbound} now={now} />}
+            {!fs.departed && f.aircraft?.registration && (inbound
+              ? <InboundCard f={f} inbound={inbound} now={now} />
+              : <section className="card"><h2>המטוס הגיע?</h2><PlaneLoader small text="בודק איפה המטוס עכשיו…" /></section>)}
 
             <section className="card">
               <h2>הזמנים</h2>
@@ -553,7 +571,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
   );
 }
 
-function LiveTab({ f, now, onRefresh, loading }) {
+function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
   if (!f) {
     return (
       <>
@@ -661,7 +679,9 @@ function LiveTab({ f, now, onRefresh, loading }) {
           </section>
         )}
 
-        {live && !live.isGround ? (
+        {liveLoading && !live ? (
+          <section className="card"><PlaneLoader text="מחפש את המטוס באוויר…" /></section>
+        ) : live && !live.isGround ? (
           <div className="tiles two">
             <div className="tile"><span className="label">גובה</span><span className="value">{(Math.round(live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')} רגל</span><span className="small muted">כ-{(live.altitudeM / 1000).toFixed(1)} ק״מ</span></div>
             <div className="tile"><span className="label">מהירות קרקע</span><span className="value">{Math.round(live.speedKmh)} קמ״ש</span></div>
@@ -784,6 +804,7 @@ function AircraftPhoto({ reg, hex }) {
     loadPhoto(reg, hex).then((b) => { if (!stop) setPhoto(b); });
     return () => { stop = true; };
   }, [reg, hex]);
+  if (reg && !photo) return <section className="card" style={{ minHeight: 160, justifyContent: 'center' }}><PlaneLoader text="מחפש תמונה של המטוס…" /></section>;
   if (!reg || !photo?.found || failed) return null;
   return (
     <figure className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', gap: 0 }}>
@@ -882,6 +903,7 @@ export default function Home() {
   const [tab, setTab] = useState('flights');
   const [now, setNow] = useState(Date.now());
   const [adsb, setAdsb] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
   const [wasAirborne, setWasAirborne] = useState(false);
 
   const search = useCallback(async (no, d) => {
@@ -912,6 +934,7 @@ export default function Home() {
   const flightReg = flight?.aircraft?.registration;
   useEffect(() => {
     setAdsb(null); setWasAirborne(false); altCallsign.current = null;
+    setLiveLoading(!!callsign);
     if (!callsign) return;
     let stop = false;
     const poll = async () => {
@@ -933,6 +956,7 @@ export default function Home() {
           if (!body.live.isGround) setWasAirborne(true);
         }
       } catch {}
+      if (!stop) setLiveLoading(false);
     };
     poll();
     const id = setInterval(poll, 15000);
@@ -986,8 +1010,8 @@ export default function Home() {
 
   return (
     <main className="app">
-      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} />}
-      {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
+      {tab === 'live' && <LiveTab f={view} now={now} liveLoading={liveLoading} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}
       {tab === 'status' && <StatusTab />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} inbound={inbound} now={now} />}

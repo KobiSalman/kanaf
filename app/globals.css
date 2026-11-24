@@ -165,3 +165,16 @@ button:disabled { opacity: 0.6; cursor: default; }
   .flyer { display: none; }
   .bp-inner, .hero { transition: none; }
 }
+
+/* ---------- טעינה: מטוס שמסתובב ---------- */
+.loader { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 12px; text-align: center; }
+.loader.small { flex-direction: row; padding: 4px 0; gap: 10px; }
+.orbit { position: relative; width: 64px; height: 64px; border-radius: 999px; border: 2px dashed #BFE3FA; animation: orbit 1.6s linear infinite; flex-shrink: 0; }
+.loader.small .orbit { width: 30px; height: 30px; border-width: 1.5px; }
+.orbit svg { position: absolute; top: -12px; left: 50%; margin-left: -12px; }
+.loader.small .orbit svg { top: -8px; margin-left: -8px; width: 16px; height: 16px; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .orbit { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+}
