@@ -63,6 +63,8 @@ function times(f) {
   return { depAt, arrAt, arrSched };
 }
 
+const airIata = (f) => (f ? f.airlineIata || (f.liveOnly ? iataFromCallsign(f.callsign) : f.flight.slice(0, 2)) : null);
+
 function flightState(f) {
   const departed = !!f.departure.actual || !!(f.live && !f.live.isGround) || !!f.wasAirborne;
   const landed = f.status === 'landed' || !!f.arrival.actual || !!(f.wasAirborne && f.live && f.live.isGround);
@@ -334,7 +336,7 @@ function StatusTab() {
   );
 }
 
-function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound, goStatus }) {
+function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound, goStatus, goLive }) {
   const hasFlight = !!f;
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
@@ -350,7 +352,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
     else if (toDep <= 0) pill = 'ממריאה בקרוב';
     else if (toDep > 0) pill = toDep > 1440 ? `עוד ${Math.round(toDep / 1440)} ימים` : `עוד ${minutesLabel(toDep)}`;
   }
-  const title = hasFlight ? (fs.landed ? 'נחתת!' : `טסים ל${CITY[f.arrival.iata] ? cityOf(f.arrival) : '-' + f.arrival.iata}!`) : 'לאן טסים?';
+  const title = hasFlight ? (f.liveOnly ? `${f.callsign} ${f.live?.isGround ? 'על הקרקע' : 'בשמיים!'}` : fs.landed ? 'נחתת!' : `טסים ל${CITY[f.arrival.iata] ? cityOf(f.arrival) : '-' + f.arrival.iata}!`) : 'לאן טסים?';
 
   const [seat, setSeat] = useState('');
   useEffect(() => { try { setSeat(localStorage.getItem('kanaf:seat') || ''); } catch {} }, []);
@@ -364,7 +366,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
     }
   }
   const theme = skyTheme(f?.arrival?.timezone || 'Asia/Jerusalem', now);
-  const destName = hasFlight ? (CITY[f.arrival.iata] ? cityOf(f.arrival) : f.arrival.iata) : 'ישראל';
+  const destName = hasFlight && f.arrival.iata ? (CITY[f.arrival.iata] ? cityOf(f.arrival) : f.arrival.iata) : 'ישראל';
 
   return (
     <>
@@ -385,7 +387,38 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
         {(editing || !hasFlight) && search}
         {error && <div className="error" role="alert">{error}</div>}
 
-        {hasFlight && (
+        {hasFlight && f.liveOnly && (
+          <>
+            <section className="card big">
+              <div className="row">
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <AirlineLogo iata={airIata(f)} name={f.airline} size={30} />
+                  <span style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="strong">{f.airline || f.callsign}</span>
+                    <span className="muted small">אות קריאה {f.callsign}</span>
+                  </span>
+                </span>
+                <span className="badge good">{f.live?.isGround ? 'על הקרקע' : 'באוויר'}</span>
+              </div>
+              <span style={{ fontSize: 15 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : 'דגם לא ידוע'}{f.aircraft?.registration ? ` · ${f.aircraft.registration}` : ''}</span>
+              {f.live && !f.live.isGround && (
+                <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  <div className="tile"><span className="label">גובה</span><span className="value" style={{ fontSize: 17 }}>{(Math.round(f.live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')}</span></div>
+                  <div className="tile"><span className="label">מהירות</span><span className="value" style={{ fontSize: 17 }}>{Math.round(f.live.speedKmh)}</span></div>
+                  <div className="tile"><span className="label">מעל</span><span className="value" style={{ fontSize: 15 }}>{f.view?.over?.name || '—'}</span></div>
+                </div>
+              )}
+              <button type="button" className="btn-sun" onClick={goLive} style={{ flex: 'none' }}>למסך בזמן הטיסה ←</button>
+            </section>
+            <div className="card cream" role="status" style={{ fontSize: 14, lineHeight: 1.55 }}>
+              {f.liveOnlyReason === 'callsign'
+                ? 'זה אות קריאה של מטוס ולא מספר טיסה, אז יש לנו רק מיקום חי, בלי זמנים, שער או יעד. כדי לראות את כל הפרטים, חפש לפי מספר הטיסה שבכרטיס.'
+                : 'שירות הזמנים לא זמין כרגע, אז מוצג רק המיקום החי של המטוס, בלי זמנים, שער או יעד.'}
+            </div>
+          </>
+        )}
+
+        {hasFlight && !f.liveOnly && (
           <>
             {f.stale && (
               <div className="card cream" role="status" style={{ fontSize: 14 }}>
@@ -400,7 +433,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
                 <>
                   <div className="row">
                     <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <AirlineLogo iata={f.flight.slice(0, 2)} name={f.airline} size={30} />
+                      <AirlineLogo iata={airIata(f)} name={f.airline} size={30} />
                       <span style={{ display: 'flex', flexDirection: 'column' }}>
                         <span className="strong">{f.airline || f.flight}</span>
                         <span className="muted small">{f.flight} · {f.date}</span>
@@ -436,7 +469,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
                 <>
                   <div className="row">
                     <span className="strong" style={{ fontSize: 17 }}>המטוס של הטיסה</span>
-                    <AirlineLogo iata={f.flight.slice(0, 2)} name={f.airline} size={26} />
+                    <AirlineLogo iata={airIata(f)} name={f.airline} size={26} />
                   </div>
                   <span style={{ fontSize: 22, fontWeight: 800 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : 'עוד לא שובץ מטוס'}</span>
                   {f.aircraft?.registration && <span className="muted">רישום: {f.aircraft.registration}</span>}
@@ -558,7 +591,7 @@ function LiveTab({ f, now, onRefresh, loading }) {
       <header className="hero short" style={{ background: liveTheme.bg, color: liveTheme.ink }}>
         <Sky theme={liveTheme} />
         <div className="row">
-          <h1 style={{ fontSize: 30, display: 'flex', alignItems: 'center', gap: 10 }}><AirlineLogo iata={f.flight.slice(0, 2)} name={f.airline} size={30} />{title}</h1>
+          <h1 style={{ fontSize: 30, display: 'flex', alignItems: 'center', gap: 10 }}><AirlineLogo iata={airIata(f)} name={f.airline} size={30} />{title}</h1>
           <span className="pill">{agoLabel(now - Date.parse(live?.updated || f.fetchedAt))}</span>
         </div>
         <svg width="100%" height="100" viewBox="0 0 350 100" style={{ position: 'relative', overflow: 'visible' }} role="img" aria-label={`התקדמות הטיסה: ${Math.round(progress * 100)} אחוז`}>
@@ -579,7 +612,7 @@ function LiveTab({ f, now, onRefresh, loading }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
             <span className="small muted">{departed && !landed ? 'נותרו' : landed ? 'שעת נחיתה' : 'המראה מתוכננת'}</span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral-ink)' }}>{landed ? (hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled) || '—') : departed ? (left > 0 ? minutesLabel(left) : 'עוד רגע') : depTime}</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral-ink)' }}>{landed ? (hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled) || '—') : departed ? (left == null ? '—' : left > 0 ? minutesLabel(left) : 'עוד רגע') : (depTime || '—')}</span>
           </div>
         </section>
 
@@ -707,7 +740,7 @@ function AircraftTab({ f, back, inbound, now }) {
             <path d="M12 2c.9 0 1.5 1.2 1.5 3v4.5l8 4.5v2l-8-2.5V18l2.5 2v1.5L12 20.5l-4 1V20l2.5-2v-4.5l-8 2.5v-2l8-4.5V5c0-1.8.6-3 1.5-3z" />
           </svg>
         </div>
-        {f && <AirlineLogo iata={f.flight.slice(0, 2)} name={f.airline} size={34} />}
+        {f && <AirlineLogo iata={airIata(f)} name={f.airline} size={34} />}
         <h1 style={{ fontSize: 28 }}>{type ? (AIRCRAFT[type] || type) : 'המטוס שלך'}</h1>
         <p style={{ color: '#4A2212' }}>{f?.airline ? `${f.airline} · ` : ''}{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}{info ? ` · ${info.body}` : ''}</p>
       </header>
@@ -856,7 +889,7 @@ export default function Home() {
 
   return (
     <main className="app">
-      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} goStatus={() => setTab('status')} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} />}
       {tab === 'live' && <LiveTab f={view} now={now} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}
       {tab === 'status' && <StatusTab />}

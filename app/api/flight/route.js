@@ -1,6 +1,34 @@
 import { NextResponse } from 'next/server';
 import { cacheGet, cacheSet } from '../../../lib/cache';
 import { localToInstant } from '../../../lib/time';
+import { lookupLive, CALLSIGN_RE } from '../../../lib/adsb';
+import { airlineOf } from '../../../lib/aviation';
+import STATUS from '../../../data/airlines-status.json';
+
+const ICAO_TO_IATA = Object.fromEntries(STATUS.airlines.filter((a) => a.icao).map((a) => [a.icao, a.iata]));
+
+// מצב "חי בלבד": כשאין זמנים (אות קריאה עם אותיות, או שהמקור לא זמין), מחפשים את המטוס באוויר ב-adsb.lol
+async function liveOnly(callsign, date, reason) {
+  let live;
+  try { live = await lookupLive({ callsign }); } catch { live = { found: false }; }
+  if (!live.found) return null;
+  return {
+    liveOnly: true,
+    liveOnlyReason: reason,
+    flight: callsign,
+    callsign,
+    airlineIata: ICAO_TO_IATA[callsign.slice(0, 3)] || null,
+    airline: airlineOf(callsign),
+    date,
+    status: live.live.isGround ? 'scheduled' : 'active',
+    departure: { iata: null, timezone: null },
+    arrival: { iata: null, timezone: null },
+    aircraft: { type: live.type, registration: live.registration },
+    live: live.live,
+    view: live.view,
+    fetchedAt: new Date().toISOString()
+  };
+}
 
 // השרת מחזיק את המפתח – הדפדפן אף פעם לא רואה אותו.
 // כל מספר טיסה נשמר במטמון משותף, כך שכל המשתמשים חולקים אותה בקשה ל-Aviationstack.
@@ -57,8 +85,15 @@ export async function GET(request) {
   const flight = parts ? parts[1] + String(Number(parts[2])) + parts[3] : raw;
   const date = searchParams.get('date') || '';
 
-  if (!/^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(flight)) {
-    return NextResponse.json({ error: 'מספר טיסה לא תקין. לדוגמה: LY315 או ELY315' }, { status: 400 });
+  const isFlightNumber = /^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(flight);
+  // אות קריאה עם אותיות (LOT2YE): אין לו זמנים ב-Aviationstack, אז מחפשים אותו באוויר
+  if (!isFlightNumber && CALLSIGN_RE.test(raw)) {
+    const lo = await liveOnly(raw, date, 'callsign');
+    if (lo) return NextResponse.json(lo);
+    return NextResponse.json({ error: `${raw} נראה כמו אות קריאה של מטוס, אבל הוא לא משדר כרגע. אפשר לחפש לפי מספר הטיסה שבכרטיס, למשל LO152.` }, { status: 404 });
+  }
+  if (!isFlightNumber) {
+    return NextResponse.json({ error: 'מספר טיסה לא תקין. לדוגמה: LY315, ELY315 או אות קריאה כמו LOT2YE' }, { status: 400 });
   }
   const key = process.env.AVIATIONSTACK_KEY;
   if (!key) {
@@ -89,7 +124,14 @@ export async function GET(request) {
       // המקור לא זמין או שנגמרו הבקשות: מציגים את הנתונים האחרונים שיש, ומסמנים שהם לא עדכניים
       stale = true;
     } else {
-      const msg = quota ? 'נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו' : 'שירות הטיסות לא זמין כרגע. נסה שוב בעוד כמה דקות.';
+      // אין זמנים: אם זה קוד ICAO (ELY315), אולי המטוס באוויר עכשיו
+      if (/^[A-Z]{3}\d/.test(flight)) {
+        const lo = await liveOnly(flight, date, quota ? 'quota' : 'unavailable');
+        if (lo) return NextResponse.json(lo);
+      }
+      const msg = quota
+        ? 'נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו. אם הטיסה באוויר עכשיו, נסה לחפש לפי קוד ICAO (למשל ELY315).'
+        : 'שירות הטיסות לא זמין כרגע. נסה שוב בעוד כמה דקות.';
       return NextResponse.json({ error: msg, quota }, { status: 502 });
     }
   }
