@@ -33,7 +33,11 @@ export async function GET(request) {
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
-      ac = (data.ac || []).find((a) => typeof a.lat === 'number') || null;
+      const isReg = url.includes('/registration/');
+      // לפי רישום: רק אם המטוס משדר את אות הקריאה של הטיסה הזו (או לא משדר אות קריאה בכלל).
+      // אחרת זה המטוס בטיסה אחרת שלו, ואסור להציג את המיקום הזה כמיקום של הטיסה שלנו.
+      ac = (data.ac || []).find((a) => typeof a.lat === 'number' &&
+        (!isReg || !(a.flight || '').trim() || variants.includes((a.flight || '').trim()))) || null;
       if (ac) break;
     }
   } catch {

@@ -114,3 +114,53 @@ button:disabled { opacity: 0.6; cursor: default; }
 .nav button span { padding: 4px 16px; display: flex; border-radius: 999px; }
 .nav button.active { color: var(--ink); font-weight: 700; }
 .nav button.active span { background: var(--sun); }
+
+/* ---------- שמיים ואנימציות ---------- */
+.hero { transition: background 1s ease, color 1s ease; }
+.hero .pill { color: var(--ink); }
+.star { width: 3px; height: 3px; border-radius: 999px; background: #fff; animation: twinkle 3s ease-in-out infinite; }
+@keyframes twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+.cloud.drift { animation: drift 14s ease-in-out infinite alternate; }
+.cloud.drift.slow { animation-duration: 20s; }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(24px); } }
+
+.flyer { position: absolute !important; top: 64px; right: -60px; display: flex; align-items: center; animation: fly 22s linear infinite; pointer-events: none; }
+.flyer .contrail { order: 2; width: 70px; height: 2px; margin-right: -4px; background: linear-gradient(90deg, rgba(255,255,255,.85), rgba(255,255,255,0)); border-radius: 2px; }
+@keyframes fly {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(calc(-50vw - 120px), -10px); }
+  100% { transform: translate(calc(-100vw - 260px), 6px); }
+}
+@media (min-width: 440px) {
+  @keyframes fly {
+    0% { transform: translate(0, 0); }
+    50% { transform: translate(-300px, -10px); }
+    100% { transform: translate(-620px, 6px); }
+  }
+}
+.hero { overflow: hidden; }
+.bob { animation: bob 3s ease-in-out infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+/* ---------- כרטיס עלייה למטוס ---------- */
+.bp { display: block; width: 100%; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: inherit; cursor: pointer; perspective: 1200px; }
+.bp-inner { display: grid; transition: transform 0.7s ease; transform-style: preserve-3d; }
+.bp.flipped .bp-inner { transform: rotateY(180deg); }
+.bp-face {
+  grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: #fff; border-radius: 28px; box-shadow: 0 12px 30px rgba(14, 42, 71, 0.14);
+  padding: 20px; display: flex; flex-direction: column; gap: 16px; position: relative;
+}
+.bp-back { transform: rotateY(180deg); }
+.bp-tear { position: relative; margin: 0 -20px; border-top: 2px dashed #CFE6F7; }
+.bp-tear::before, .bp-tear::after { content: ''; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 999px; background: var(--ground); }
+.bp-tear::before { right: -12px; }
+.bp-tear::after { left: -12px; }
+.bp-bottom { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.bp:focus-visible { outline: 3px solid var(--sun); outline-offset: 4px; border-radius: 30px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .flyer, .cloud.drift, .bob, .star { animation: none; }
+  .flyer { display: none; }
+  .bp-inner, .hero { transition: none; }
+}
