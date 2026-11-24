@@ -1,9 +1,37 @@
 import { NextResponse } from 'next/server';
+import { cacheGet, cacheSet } from '../../../lib/cache';
+import { localToInstant } from '../../../lib/time';
 
 // השרת מחזיק את המפתח – הדפדפן אף פעם לא רואה אותו.
-// מטמון קצר כדי לחסוך בקשות (100 בחודש במסלול החינמי).
-const cache = new Map();
-const TTL_MS = 5 * 60 * 1000;
+// כל מספר טיסה נשמר במטמון משותף, כך שכל המשתמשים חולקים אותה בקשה ל-Aviationstack.
+const KEEP_SECONDS = 3 * 24 * 3600; // שומרים 3 ימים, כדי שיהיה מה להציג גם אם המקור לא זמין
+
+// כמה זמן הנתונים נחשבים טריים: קרוב להמראה ובזמן טיסה מרעננים יותר
+function freshSeconds(items) {
+  if (!items.length) return 30 * 60;
+  const now = Date.now();
+  let best = 3 * 3600;
+  for (const f of items) {
+    const dep = f.departure || {};
+    const depAt = localToInstant(dep.actual || dep.estimated || dep.scheduled, dep.timezone);
+    if (f.flight_status === 'active') best = Math.min(best, 15 * 60);
+    else if (depAt && !dep.actual && depAt - now < 3 * 3600e3 && depAt - now > -3 * 3600e3) best = Math.min(best, 10 * 60);
+    else if (depAt && Math.abs(depAt - now) < 24 * 3600e3) best = Math.min(best, 30 * 60);
+  }
+  return best;
+}
+
+// רק השדות שאנחנו צריכים, כדי לשמור את המטמון קטן
+const slim = (f) => ({
+  flight_date: f.flight_date,
+  flight_status: f.flight_status,
+  flight: f.flight ? { iata: f.flight.iata, icao: f.flight.icao, codeshared: f.flight.codeshared ? true : null } : null,
+  airline: f.airline ? { name: f.airline.name } : null,
+  departure: f.departure,
+  arrival: f.arrival,
+  aircraft: f.aircraft,
+  live: f.live
+});
 
 function pick(side) {
   if (!side) return null;
@@ -37,27 +65,33 @@ export async function GET(request) {
     return NextResponse.json({ error: 'חסר מפתח API בשרת (AVIATIONSTACK_KEY)' }, { status: 500 });
   }
 
-  const cacheKey = flight;
-  let payload = cache.get(cacheKey);
-  if (!payload || Date.now() - payload.at > TTL_MS) {
+  const cacheKey = `flight:${flight}`;
+  const cached = await cacheGet(cacheKey);
+  let payload = cached ? { at: cached.at, data: cached.value } : null;
+  let stale = false;
+
+  if (!payload || Date.now() - payload.at > freshSeconds(payload.data) * 1000) {
     // 3 אותיות + מספר = קוד ICAO (למשל ISR730), 2 תווים + מספר = קוד IATA (למשל 6H730)
     const param = /^[A-Z]{3}\d/.test(flight) ? 'flight_icao' : 'flight_iata';
     const url = `https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&${param}=${flight}&limit=20`;
-    let res;
+    let body = null, ok = false, quota = false;
     try {
-      res = await fetch(url, { cache: 'no-store' });
-    } catch {
-      return NextResponse.json({ error: 'לא הצלחנו להתחבר לשירות הטיסות' }, { status: 502 });
+      const res = await fetch(url, { cache: 'no-store' });
+      body = await res.json().catch(() => null);
+      ok = res.ok && body && !body.error;
+      quota = body?.error?.code === 'usage_limit_reached';
+    } catch {}
+
+    if (ok) {
+      const entry = await cacheSet(cacheKey, (body.data || []).map(slim), KEEP_SECONDS);
+      payload = { at: entry.at, data: entry.value };
+    } else if (payload) {
+      // המקור לא זמין או שנגמרו הבקשות: מציגים את הנתונים האחרונים שיש, ומסמנים שהם לא עדכניים
+      stale = true;
+    } else {
+      const msg = quota ? 'נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו' : 'שירות הטיסות לא זמין כרגע. נסה שוב בעוד כמה דקות.';
+      return NextResponse.json({ error: msg, quota }, { status: 502 });
     }
-    const body = await res.json().catch(() => null);
-    if (!res.ok || !body || body.error) {
-      const msg = body?.error?.code === 'usage_limit_reached'
-        ? 'נגמרו הבקשות החודשיות במסלול החינמי'
-        : 'שירות הטיסות החזיר שגיאה';
-      return NextResponse.json({ error: msg }, { status: 502 });
-    }
-    payload = { at: Date.now(), data: body.data || [] };
-    cache.set(cacheKey, payload);
   }
 
   const all = payload.data;
@@ -96,6 +130,7 @@ export async function GET(request) {
           isGround: chosen.live.is_ground
         }
       : null,
-    fetchedAt: new Date(payload.at).toISOString()
+    fetchedAt: new Date(payload.at).toISOString(),
+    stale
   });
 }

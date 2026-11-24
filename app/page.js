@@ -387,6 +387,11 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
 
         {hasFlight && (
           <>
+            {f.stale && (
+              <div className="card cream" role="status" style={{ fontSize: 14 }}>
+                שירות הזמנים לא זמין כרגע, אז מוצגים הנתונים האחרונים ששמרנו ({agoLabel(now - Date.parse(f.fetchedAt))}). המיקום החי ממשיך להתעדכן.
+              </div>
+            )}
             <AirlineAlert f={f} goStatus={goStatus} />
             <BoardingPass
               seed={`${f.flight}${f.date}`}
