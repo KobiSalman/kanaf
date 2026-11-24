@@ -5,7 +5,8 @@ import { cacheGet, cacheSet } from '../../../lib/cache';
 // התנאים שלהם: להציג את שם הצלם ולקשר לעמוד התמונה באתר שלהם.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const reg = (searchParams.get('reg') || '').trim().toUpperCase();
+  // מנקים תווים נסתרים ומקפים "מיוחדים" שנכנסים בהעתקה מטקסט בעברית
+  const reg = (searchParams.get('reg') || '').toUpperCase().replace(/[\u2010-\u2015\u2212]/g, '-').replace(/[^A-Z0-9-]/g, '');
   if (!/^[A-Z0-9-]{3,10}$/.test(reg)) return NextResponse.json({ error: 'מספר רישום לא תקין' }, { status: 400 });
 
   const key = `photo2:${reg}`;
