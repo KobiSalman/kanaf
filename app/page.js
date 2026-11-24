@@ -513,13 +513,13 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
               </section>
             )}
 
-            {f.aircraft?.type && (
+            {(
               <button type="button" className="card peach" onClick={goAircraft} style={{ border: 'none', textAlign: 'right', cursor: 'pointer', flexDirection: 'row', alignItems: 'center', gap: 14, color: 'inherit' }}>
                 <div className="plane-dot" style={{ width: 54, height: 54, borderRadius: 18 }}><span style={{ color: '#fff', display: 'flex' }}><TopIcon /></span></div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                  <span style={{ fontSize: 13, color: '#6B3A2A' }}>תטוס ב-</span>
-                  <span style={{ fontSize: 17, fontWeight: 800 }}>{AIRCRAFT[f.aircraft.type] || f.aircraft.type}{f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)' }}>הכר את המטוס שלך ←</span>
+                  <span style={{ fontSize: 13, color: '#6B3A2A' }}>{f.aircraft?.type ? 'תטוס ב-' : 'המטוס של הטיסה'}</span>
+                  <span style={{ fontSize: 17, fontWeight: 800 }}>{f.aircraft?.type ? `${AIRCRAFT[f.aircraft.type] || f.aircraft.type}${f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}` : 'המטוס עוד לא זוהה'}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)' }}>{f.aircraft?.type ? 'הכר את המטוס שלך ←' : 'מושב, תרשים ופרטים יופיעו כשהמטוס יזוהה ←'}</span>
                 </div>
               </button>
             )}
@@ -922,6 +922,8 @@ export default function Home() {
           q.set('from', flight.departure.iata || ''); q.set('to', flight.arrival.iata || ''); q.set('dir', flight.direction || 'departure');
           const eta = localToInstant(flight.arrival.estimated || flight.arrival.scheduled, flight.arrival.timezone);
           if (eta) q.set('eta', String(eta));
+          const dep = localToInstant(flight.departure.actual || flight.departure.estimated || flight.departure.scheduled, flight.departure.timezone);
+          if (dep) q.set('dep', String(dep));
         }
         const res = await fetch(`/api/live?${q}`);
         const body = await res.json();

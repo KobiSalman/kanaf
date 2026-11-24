@@ -18,13 +18,14 @@ export async function GET(request) {
   const to = (searchParams.get('to') || '').trim().toUpperCase();
   const direction = searchParams.get('dir') === 'arrival' ? 'arrival' : 'departure';
   const etaMs = Number(searchParams.get('eta')) || null;
+  const depMs = Number(searchParams.get('dep')) || null;
   const cacheKey = [callsign, reg, alt, from, to].join('|');
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL_MS) return NextResponse.json(hit.body);
 
   let body;
   try {
-    body = await lookupLive({ callsign, reg, alt, from, to, direction, etaMs });
+    body = await lookupLive({ callsign, reg, alt, from, to, direction, etaMs, depMs });
   } catch {
     return NextResponse.json({ error: 'לא הצלחנו לקבל מיקום חי' }, { status: 502 });
   }
