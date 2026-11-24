@@ -743,16 +743,47 @@ function WhereIsPlane({ f, inbound, now }) {
   return null;
 }
 
-function AircraftPhoto({ reg }) {
+const pickPhoto = (data) => {
+  const p = (data?.photos || [])[0];
+  if (!p || !(p.thumbnail_large?.src || p.thumbnail?.src)) return null;
+  return {
+    found: true,
+    src: p.thumbnail_large?.src || p.thumbnail.src,
+    width: p.thumbnail_large?.size?.width || p.thumbnail?.size?.width || null,
+    height: p.thumbnail_large?.size?.height || p.thumbnail?.size?.height || null,
+    photographer: p.photographer || null,
+    link: p.link || null
+  };
+};
+
+// קודם דרך השרת שלנו (עם מטמון); אם הוא לא קיבל תמונה, הדפדפן פונה ישירות ל-Planespotters,
+// לפי רישום ואז לפי קוד המשדר של המטוס
+async function loadPhoto(reg, hex) {
+  try {
+    const b = await (await fetch(`/api/photo?reg=${encodeURIComponent(reg)}`)).json();
+    if (b?.found) return b;
+  } catch {}
+  const urls = [`https://api.planespotters.net/pub/photos/reg/${encodeURIComponent(reg)}`];
+  if (hex) urls.push(`https://api.planespotters.net/pub/photos/hex/${encodeURIComponent(hex)}`);
+  for (const u of urls) {
+    try {
+      const r = await fetch(u);
+      if (r.ok) { const ph = pickPhoto(await r.json()); if (ph) return ph; }
+    } catch {}
+  }
+  return { found: false };
+}
+
+function AircraftPhoto({ reg, hex }) {
   const [photo, setPhoto] = useState(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     setPhoto(null); setFailed(false);
     if (!reg) return;
     let stop = false;
-    fetch(`/api/photo?reg=${encodeURIComponent(reg)}`).then((r) => r.json()).then((b) => { if (!stop) setPhoto(b); }).catch(() => {});
+    loadPhoto(reg, hex).then((b) => { if (!stop) setPhoto(b); });
     return () => { stop = true; };
-  }, [reg]);
+  }, [reg, hex]);
   if (!reg || !photo?.found || failed) return null;
   return (
     <figure className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', gap: 0 }}>
@@ -797,7 +828,7 @@ function AircraftTab({ f, back, inbound, now }) {
         <p style={{ color: '#4A2212' }}>{f?.airline ? `${f.airline} · ` : ''}{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}{info ? ` · ${info.body}` : ''}</p>
       </header>
       <div className="content flat">
-        <AircraftPhoto reg={f?.aircraft?.registration} />
+        <AircraftPhoto reg={f?.aircraft?.registration} hex={f?.aircraft?.hex} />
         {f && <WhereIsPlane f={f} inbound={inbound} now={now} />}
 
         {info ? (
@@ -940,7 +971,8 @@ export default function Home() {
         wasAirborne,
         aircraft: {
           type: flight.aircraft?.type || adsb.type,
-          registration: adsb.registration || flight.aircraft?.registration
+          registration: adsb.registration || flight.aircraft?.registration,
+          hex: adsb.hex || null
         }
       }
     : flight;

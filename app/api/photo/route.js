@@ -8,7 +8,7 @@ export async function GET(request) {
   const reg = (searchParams.get('reg') || '').trim().toUpperCase();
   if (!/^[A-Z0-9-]{3,10}$/.test(reg)) return NextResponse.json({ error: 'מספר רישום לא תקין' }, { status: 400 });
 
-  const key = `photo:${reg}`;
+  const key = `photo2:${reg}`;
   const cached = await cacheGet(key);
   if (cached) return NextResponse.json(cached.value);
 
@@ -31,8 +31,9 @@ export async function GET(request) {
           link: p.link || null
         };
       }
-    } else if (res.status >= 500) {
-      return NextResponse.json({ found: false }, { status: 502 });
+    } else {
+      // חסימה או תקלה בצד שלהם: לא שומרים במטמון, כדי לנסות שוב בפעם הבאה
+      return NextResponse.json({ found: false, upstream: res.status }, { status: 502 });
     }
   } catch {
     return NextResponse.json({ found: false }, { status: 502 });
