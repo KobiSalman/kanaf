@@ -743,6 +743,37 @@ function WhereIsPlane({ f, inbound, now }) {
   return null;
 }
 
+function AircraftPhoto({ reg }) {
+  const [photo, setPhoto] = useState(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setPhoto(null); setFailed(false);
+    if (!reg) return;
+    let stop = false;
+    fetch(`/api/photo?reg=${encodeURIComponent(reg)}`).then((r) => r.json()).then((b) => { if (!stop) setPhoto(b); }).catch(() => {});
+    return () => { stop = true; };
+  }, [reg]);
+  if (!reg || !photo?.found || failed) return null;
+  return (
+    <figure className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', gap: 0 }}>
+      <img
+        src={photo.src}
+        alt={`המטוס ${reg}${photo.photographer ? `, צילום: ${photo.photographer}` : ''}`}
+        width={photo.width || undefined}
+        height={photo.height || undefined}
+        onError={() => setFailed(true)}
+        style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '3 / 2', objectFit: 'cover', background: '#DCEFFB' }}
+      />
+      <figcaption style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <span>המטוס האמיתי, {reg}</span>
+        {photo.link
+          ? <a href={photo.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--coral-ink)' }}>© {photo.photographer || 'צלם'} / Planespotters.net</a>
+          : <span>© {photo.photographer || 'צלם'} / Planespotters.net</span>}
+      </figcaption>
+    </figure>
+  );
+}
+
 function AircraftTab({ f, back, inbound, now }) {
   const type = f?.aircraft?.type;
   const info = type ? TYPE_INFO[type] : null;
@@ -766,6 +797,7 @@ function AircraftTab({ f, back, inbound, now }) {
         <p style={{ color: '#4A2212' }}>{f?.airline ? `${f.airline} · ` : ''}{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}{info ? ` · ${info.body}` : ''}</p>
       </header>
       <div className="content flat">
+        <AircraftPhoto reg={f?.aircraft?.registration} />
         {f && <WhereIsPlane f={f} inbound={inbound} now={now} />}
 
         {info ? (
