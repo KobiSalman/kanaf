@@ -5,6 +5,7 @@ import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/ti
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
+import AirlineLogo, { iataFromCallsign } from './AirlineLogo';
 
 const STATUS = {
   scheduled: { text: 'מתוכננת', tone: 'good' },
@@ -214,7 +215,7 @@ function NearbyTab({ now }) {
         {flying.map((p) => (
           <section key={p.id} className="card" style={{ gap: 6 }}>
             <div className="row">
-              <span style={{ fontSize: 18, fontWeight: 800 }}>{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> · {p.airline}</span> : null}</span>
+              <span style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>{iataFromCallsign(p.callsign) && <AirlineLogo iata={iataFromCallsign(p.callsign)} name={p.airline} size={26} />}{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> · {p.airline}</span> : null}</span>
               <span className="badge good">{p.distKm} ק״מ{p.fromYou ? ` · ${p.fromYou}` : ''}</span>
             </div>
             <span style={{ fontSize: 14 }}>{p.type ? (AIRCRAFT[p.type] || p.type) : 'דגם לא ידוע'}{p.registration && p.callsign ? ` · ${p.registration}` : ''}</span>
@@ -269,7 +270,10 @@ function StatusTab() {
 
   const Row = ({ a, extra }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 8, borderBottom: '1px solid #EAF1F7' }}>
-      <div className="row"><span className="strong">{a.name}</span><span className="muted small">{a.iata}</span></div>
+      <div className="row">
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><AirlineLogo iata={a.iata} name={a.name} size={26} /><span className="strong">{a.name}</span></span>
+        <span className="muted small">{a.iata}</span>
+      </div>
       {extra && <span style={{ fontSize: 14 }}>{extra}</span>}
       {a.note && <span className="muted" style={{ fontSize: 13 }}>{a.note}</span>}
     </div>
@@ -370,7 +374,10 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
             <AirlineAlert f={f} goStatus={goStatus} />
             <section className="card big">
               <div className="row">
-                <span className="muted">{f.date} · {f.flight}{f.airline ? ` · ${f.airline}` : ''}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <AirlineLogo iata={f.flight.slice(0, 2)} name={f.airline} size={30} />
+                  <span className="muted">{f.date} · {f.flight}{f.airline ? ` · ${f.airline}` : ''}</span>
+                </span>
                 <span className={`badge ${st.tone}`}>{st.text}</span>
               </div>
               <div className="route">
@@ -497,7 +504,7 @@ function LiveTab({ f, now, onRefresh, loading }) {
       <header className="hero short">
         <div className="cloud" style={{ right: -20, top: 96, width: 130, height: 36, opacity: 0.7 }} aria-hidden="true" />
         <div className="row">
-          <h1 style={{ fontSize: 30 }}>{title}</h1>
+          <h1 style={{ fontSize: 30, display: 'flex', alignItems: 'center', gap: 10 }}><AirlineLogo iata={f.flight.slice(0, 2)} name={f.airline} size={30} />{title}</h1>
           <span className="pill">{agoLabel(now - Date.parse(live?.updated || f.fetchedAt))}</span>
         </div>
         <svg width="100%" height="100" viewBox="0 0 350 100" role="img" aria-label={`התקדמות הטיסה: ${Math.round(progress * 100)} אחוז`}>
@@ -646,8 +653,9 @@ function AircraftTab({ f, back, inbound, now }) {
             <path d="M12 2c.9 0 1.5 1.2 1.5 3v4.5l8 4.5v2l-8-2.5V18l2.5 2v1.5L12 20.5l-4 1V20l2.5-2v-4.5l-8 2.5v-2l8-4.5V5c0-1.8.6-3 1.5-3z" />
           </svg>
         </div>
+        {f && <AirlineLogo iata={f.flight.slice(0, 2)} name={f.airline} size={34} />}
         <h1 style={{ fontSize: 28 }}>{type ? (AIRCRAFT[type] || type) : 'המטוס שלך'}</h1>
-        <p style={{ color: '#4A2212' }}>{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}{info ? ` · ${info.body}` : ''}</p>
+        <p style={{ color: '#4A2212' }}>{f?.airline ? `${f.airline} · ` : ''}{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}{info ? ` · ${info.body}` : ''}</p>
       </header>
       <div className="content flat">
         {f && <WhereIsPlane f={f} inbound={inbound} now={now} />}
