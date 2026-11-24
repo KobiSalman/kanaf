@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
@@ -68,9 +68,10 @@ const airIata = (f) => (f ? f.airlineIata || (f.liveOnly ? iataFromCallsign(f.ca
 function flightState(f) {
   // טיסה נכנסת מלוח נתב״ג: אין שעת המראה בפועל מחו״ל, אז אם עברה ההמראה המשוערת והטיסה עוד לא נחתה, היא כנראה באוויר
   let guessedAirborne = false;
-  if (f.source === 'iaa' && f.direction === 'arrival' && f.status === 'scheduled' && f.departure.estimated) {
+  if (f.source === 'iaa' && f.status === 'scheduled' && f.departure.estimated) {
+    // הלוח של נתב״ג מתעדכן באיחור: אם עברו 20 דקות מההמראה הצפויה ואין ביטול, הטיסה כנראה באוויר
     const depAt = localToInstant(f.departure.estimated, f.departure.timezone);
-    guessedAirborne = !!depAt && Date.now() > depAt + 15 * 60000;
+    guessedAirborne = !!depAt && Date.now() > depAt + (f.direction === 'arrival' ? 15 : 20) * 60000;
   }
   const departed = !!f.departure.actual || !!(f.live && !f.live.isGround) || !!f.wasAirborne || guessedAirborne;
   const landed = f.status === 'landed' || !!f.arrival.actual || !!(f.wasAirborne && f.live && f.live.isGround);
@@ -684,7 +685,8 @@ function LiveTab({ f, now, onRefresh, loading }) {
         </section>
 
         <button type="button" className="btn-sun" onClick={onRefresh} disabled={loading} style={{ flex: 'none' }}>{loading ? 'מרענן…' : 'רענן נתונים'}</button>
-        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל 15 שניות.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}</p>
+        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל 15 שניות.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}
+          {f.broadcastCallsign && f.callsign && f.broadcastCallsign !== f.callsign ? ` המטוס משדר כ-${f.broadcastCallsign}${f.matchedByRoute ? ', וזיהינו אותו לפי החברה וכיוון הטיסה' : ''}.` : ''}</p>
       </div>
     </>
   );
@@ -842,19 +844,27 @@ export default function Home() {
   }, [search]);
 
   // מיקום חי בזמן אמת מ-adsb.lol, כל 15 שניות כשהדף פתוח
+  const altCallsign = useRef(null);
   const callsign = flight?.callsign;
   const flightReg = flight?.aircraft?.registration;
   useEffect(() => {
-    setAdsb(null); setWasAirborne(false);
+    setAdsb(null); setWasAirborne(false); altCallsign.current = null;
     if (!callsign) return;
     let stop = false;
     const poll = async () => {
       if (document.hidden) return;
       try {
-        const res = await fetch(`/api/live?callsign=${encodeURIComponent(callsign)}&reg=${encodeURIComponent(flightReg || '')}`);
+        const q = new URLSearchParams({ callsign, reg: flightReg || '', alt: altCallsign.current || '' });
+        if (flight?.source === 'iaa') {
+          q.set('from', flight.departure.iata || ''); q.set('to', flight.arrival.iata || ''); q.set('dir', flight.direction || 'departure');
+          const eta = localToInstant(flight.arrival.estimated || flight.arrival.scheduled, flight.arrival.timezone);
+          if (eta) q.set('eta', String(eta));
+        }
+        const res = await fetch(`/api/live?${q}`);
         const body = await res.json();
         if (!stop && res.ok && body.found) {
           setAdsb(body);
+          if (body.broadcastCallsign) altCallsign.current = body.broadcastCallsign;
           if (!body.live.isGround) setWasAirborne(true);
         }
       } catch {}
@@ -893,6 +903,8 @@ export default function Home() {
         live: adsb.live,
         view: adsb.view,
         liveSource: 'adsb',
+        broadcastCallsign: adsb.broadcastCallsign,
+        matchedByRoute: adsb.matchedByRoute,
         wasAirborne,
         aircraft: {
           type: flight.aircraft?.type || adsb.type,

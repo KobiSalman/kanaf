@@ -13,13 +13,18 @@ export async function GET(request) {
     return NextResponse.json({ error: 'אות קריאה לא תקין' }, { status: 400 });
   }
   const reg = (searchParams.get('reg') || '').trim().toUpperCase();
-  const cacheKey = callsign + '|' + reg;
+  const alt = (searchParams.get('alt') || '').trim().toUpperCase();
+  const from = (searchParams.get('from') || '').trim().toUpperCase();
+  const to = (searchParams.get('to') || '').trim().toUpperCase();
+  const direction = searchParams.get('dir') === 'arrival' ? 'arrival' : 'departure';
+  const etaMs = Number(searchParams.get('eta')) || null;
+  const cacheKey = [callsign, reg, alt, from, to].join('|');
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL_MS) return NextResponse.json(hit.body);
 
   let body;
   try {
-    body = await lookupLive({ callsign, reg });
+    body = await lookupLive({ callsign, reg, alt, from, to, direction, etaMs });
   } catch {
     return NextResponse.json({ error: 'לא הצלחנו לקבל מיקום חי' }, { status: 502 });
   }
