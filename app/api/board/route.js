@@ -10,7 +10,8 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const dir = searchParams.get('dir') === 'A' ? 'A' : 'D';
   const q = (searchParams.get('q') || '').trim().toLowerCase();
-  const hoursBack = 2, hoursAhead = q ? 72 : 12;
+  const loc = (searchParams.get('loc') || '').trim().toUpperCase().slice(0, 4);
+  const hoursBack = loc ? 0.5 : 2, hoursAhead = q || loc ? 72 : 12;
 
   let board;
   try { board = await fullBoard(); } catch {
@@ -21,6 +22,7 @@ export async function GET(request) {
     .filter((r) => r.dir === dir)
     .map((r) => ({ ...r, t: localToInstant(r.ptol, 'Asia/Jerusalem') }))
     .filter((r) => r.t && r.t > now - hoursBack * 3600e3 && r.t < now + hoursAhead * 3600e3)
+    .filter((r) => !loc || r.loc === loc)
     .filter((r) => !q || [r.city, r.cityEn, r.country, r.loc, r.opName, r.op, `${r.op}${r.fn}`].some((x) => String(x).toLowerCase().includes(q)))
     .sort((a, b) => a.t - b.t)
     .slice(0, 200);

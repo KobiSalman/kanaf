@@ -5,6 +5,7 @@ import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/ti
 import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { BrandBar } from './Logo';
 import NearbyMap from './NearbyMap';
+import DestinationPicker from './DestinationPicker';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
@@ -512,7 +513,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
     else if (toDep <= 0) pill = 'ממריאה בקרוב';
     else if (toDep > 0) pill = toDep > 1440 ? `עוד ${Math.round(toDep / 1440)} ימים` : `עוד ${minutesLabel(toDep)}`;
   }
-  const title = hasFlight ? (f.liveOnly ? `${f.callsign} ${f.live?.isGround ? 'על הקרקע' : 'בשמיים!'}` : fs.landed ? 'נחתת!' : `טסים ל${cityOf(f.arrival)}!`) : 'לאן טסים?';
+  const title = hasFlight ? (f.liveOnly ? `${f.callsign} ${f.live?.isGround ? 'על הקרקע' : 'בשמיים!'}` : fs.landed ? 'נחתת!' : `טסים ל${cityOf(f.arrival)}!`) : 'לאן טסים? ✈️';
 
   const [seat, setSeat] = useState('');
   useEffect(() => { try { setSeat(localStorage.getItem('kanaf:seat') || ''); } catch {} }, []);
@@ -1041,7 +1042,7 @@ function AircraftTab({ f, back, inbound, now }) {
 }
 
 export default function App() {
-  const [flightNo, setFlightNo] = useState('LY315');
+  const [flightNo, setFlightNo] = useState('');
   const [date, setDate] = useState('');
   const [flight, setFlight] = useState(null);
   const [error, setError] = useState('');
@@ -1067,8 +1068,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    let no = 'LY315', d = todayIn();
-    try { const last = JSON.parse(localStorage.getItem('kanaf:last') || 'null'); if (last?.no) { no = last.no; d = last.d || d; } } catch {}
+    // משתמש חדש רואה קודם "לאן טסים?". משתמש חוזר רואה את הטיסה האחרונה שלו, אם היא לא עברה כבר
+    let no = '', d = todayIn();
+    try {
+      const last = JSON.parse(localStorage.getItem('kanaf:last') || 'null');
+      const yesterday = new Date(Date.parse(todayIn()) - 864e5).toISOString().slice(0, 10);
+      if (last?.no && (last.d || '') >= yesterday) { no = last.no; d = last.d || d; }
+    } catch {}
     // קישור משותף: ?f=LY315&d=2026-11-25 פותח ישר את הטיסה הזו
     try {
       const u = new URLSearchParams(window.location.search);
@@ -1076,7 +1082,7 @@ export default function App() {
       if (sf) { no = sf; d = /^\d{4}-\d{2}-\d{2}$/.test(u.get('d') || '') ? u.get('d') : todayIn(); }
     } catch {}
     setFlightNo(no); setDate(d);
-    search(no, d);
+    if (no) search(no, d);
     const id = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(id);
   }, [search]);
@@ -1155,8 +1161,11 @@ export default function App() {
     : flight;
 
   const searchCard = (
-    <SearchCard flightNo={flightNo} setFlightNo={setFlightNo} date={date} setDate={setDate} loading={loading}
-      onSearch={() => search(flightNo, date)} onCancel={flight ? () => setEditing(false) : null} />
+    <DestinationPicker
+      onPick={(no, d) => { setFlightNo(no); setDate(d); setEditing(false); search(no, d); }}
+      onCancel={flight ? () => setEditing(false) : null}
+      numberSearch={<SearchCard flightNo={flightNo} setFlightNo={setFlightNo} date={date} setDate={setDate} loading={loading}
+        onSearch={() => search(flightNo, date)} onCancel={flight ? () => setEditing(false) : null} />} />
   );
 
   return (
