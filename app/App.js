@@ -510,6 +510,8 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, go
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
   const stTone = hasFlight && f.statusEn ? (/CANCEL/.test(f.statusEn) ? 'bad' : f.statusEn === 'DELAYED' ? 'warn' : 'good') : st?.tone;
+  // עיכוב או ביטול: החותמת האדומה מחליפה את תגית הסטטוס, גם כשהלוח עדיין כותב "בזמן"
+  const stamp = hasFlight && !f.liveOnly ? delayStamp(f) : null;
   // בלי "כ-" לפני השעות: התווית ליד השעה כבר אומרת שזו הערכה
   const approx = () => '';
   const t = hasFlight ? times(f) : null;
@@ -600,7 +602,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, go
             )}
             <AirlineAlert f={f} goStatus={goStatus} />
             <BoardingPass
-              stamp={delayStamp(f)}
+              stamp={stamp}
               seed={`${f.flight}${f.date}`}
               label={`כרטיס טיסה ${f.flight} מ-${f.departure.iata} ל-${f.arrival.iata}`}
               front={
@@ -613,7 +615,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, go
                         <span className="muted small">{f.flight} · {f.date}</span>
                       </span>
                     </span>
-                    <span className={`badge ${stTone}`}>{f.statusHe || st.text}</span>
+                    {!stamp && <span className={`badge ${stTone}`}>{f.statusHe || st.text}</span>}
                   </div>
                   <div className="route">
                     <div className="end">
