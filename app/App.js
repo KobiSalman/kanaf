@@ -1154,6 +1154,8 @@ export default function App() {
       {tab === 'board' && <BoardTab now={now} onOpen={(no, d) => { setFlightNo(no); setDate(d); setEditing(false); setTab('flights'); search(no, d); }} />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} inbound={inbound} now={now} />}
 
+      <p className="small muted" style={{ textAlign: 'center', margin: '20px 0 0' }}><a href="/terms" style={{ color: 'inherit' }}>תנאי שימוש ופרטיות</a> · המידע ממקורות ציבוריים ואינו רשמי</p>
+
       <nav className="nav" aria-label="ניווט ראשי">
         <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon /></span>טיסות</button>
         <button type="button" className={tab === 'live' ? 'active' : ''} onClick={() => setTab('live')}><span><GaugeIcon /></span>בטיסה</button>
