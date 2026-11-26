@@ -488,6 +488,45 @@ function ShareCard({ f }) {
   );
 }
 
+// טיסה בשיתוף קוד: מי באמת מפעיל את הטיסה. אם המטוס כבר משדר, לפי אות הקריאה שלו (ודאי).
+// אחרת לפי מספר הטיסה הנמוך מבין כולם, כי מספרי שיתוף קוד הם בדרך כלל גבוהים (הערכה)
+function codeshareInfo(f) {
+  const others = f.codeshares || [];
+  if (!others.length) return null;
+  const own = { flight: f.flight, iata: f.airlineIata, fn: Number(String(f.flight).replace(/^\D+/, '')), airline: f.airline, callsign: f.callsign, own: true };
+  const all = [own, ...others];
+  let op = f.broadcastCallsign ? all.find((c) => c.callsign && c.callsign === f.broadcastCallsign) : null;
+  const certain = !!op;
+  if (!op) op = all.reduce((a, b) => (b.fn < a.fn ? b : a));
+  return { op, certain, others: all.filter((c) => c !== op) };
+}
+
+function CodeshareCard({ f }) {
+  const c = codeshareInfo(f);
+  if (!c) return null;
+  const mine = c.op.own;
+  const names = c.others.map((x) => `${x.airline || x.iata} (${x.flight})`).join(', ');
+  return (
+    <section className="card" style={{ gap: 8, border: '2px solid #CFE6F7' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <AirlineLogo iata={c.op.iata} name={c.op.airline} size={30} />
+        <span style={{ display: 'flex', flexDirection: 'column' }}>
+          <span className="small muted">טיסה משותפת{c.certain ? '' : ' · ככל הנראה'}</span>
+          <span className="strong" style={{ fontSize: 16 }}>
+            {mine ? `${c.op.airline} מפעילה את הטיסה` : `בפועל טסים עם ${c.op.airline || c.op.iata} (${c.op.flight})`}
+          </span>
+        </span>
+      </div>
+      <span style={{ fontSize: 14, lineHeight: 1.55 }}>
+        {mine
+          ? `אותה טיסה נמכרת גם בתור ${names}. אם בכרטיס שלך כתוב מספר אחר, זו אותה טיסה ואותו מטוס.`
+          : `הכרטיס שלך הוא של ${f.airline} (${f.flight}), אבל המטוס, הצוות והדלפקים בשדה הם של ${c.op.airline || c.op.iata}. בלוחות בטרמינל הטיסה יכולה להופיע תחת ${c.op.flight}.`}
+      </span>
+      <span className="small muted">תנאי כבודה ושינויים בכרטיס נקבעים בדרך כלל לפי החברה שממנה קניתם. כדאי לבדוק מולה.</span>
+    </section>
+  );
+}
+
 // חותמת אדומה על כרטיס הטיסה: עיכוב של 15 דקות ומעלה, או טיסה שבוטלה
 function delayStamp(f) {
   if (f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '')) return { title: 'בוטלה', sub: 'בדקו מול חברת התעופה' };
@@ -666,6 +705,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, go
             {f.departure.iata === 'TLV' && !fs.departed && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <LeaveHomeCard f={f} now={now} />}
             {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
 
+            <CodeshareCard f={f} />
             <DestinationTeaser f={f} onOpen={goDest} />
 
             {f.source !== 'iaa' && !f.departure.gate && f.status === 'scheduled' && (
