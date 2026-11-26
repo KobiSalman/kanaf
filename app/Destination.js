@@ -36,21 +36,6 @@ export function plugInfo(plugs) {
   return { fits: false, short: 'כדאי מתאם', text: 'כדאי לקחת מתאם אוניברסלי.' };
 }
 
-// רקע בצבעי הדגל של המדינה: פסים (אופקיים, אנכיים או אלכסוניים), ולפעמים עיגול, צלב או פס ליד התורן
-function flagBackground(flag) {
-  if (!flag) return null;
-  const list = flag.h || flag.v || flag.d || ['#FF9A76'];
-  const dir = flag.v ? 'to right' : flag.d ? '135deg' : 'to bottom';
-  const step = 100 / list.length;
-  const stops = list.map((c, i) => `${c} ${(i * step).toFixed(2)}% ${((i + 1) * step).toFixed(2)}%`).join(', ');
-  const layers = [];
-  if (flag.circle) layers.push(`radial-gradient(circle at 50% 50%, ${flag.circle} 0 22%, transparent 22.5%)`);
-  if (flag.cross) layers.push(`linear-gradient(to right, transparent 44%, ${flag.cross} 44% 56%, transparent 56%)`, `linear-gradient(to bottom, transparent 40%, ${flag.cross} 40% 60%, transparent 60%)`);
-  if (flag.band) layers.push(`linear-gradient(to right, ${flag.band} 0 34%, transparent 34%)`);
-  layers.push(`linear-gradient(${dir}, ${stops})`);
-  return layers.join(', ');
-}
-
 function useRate(code) {
   const [rate, setRate] = useState(null);
   useEffect(() => {
@@ -176,12 +161,17 @@ export function DestinationTab({ f, back }) {
     <>
       <header className="dest-hero2">
         <div className="dest-top">
-          {d?.c.flag && <div className="dest-flag" aria-hidden="true" style={{ background: flagBackground(d.c.flag) }}><span className="dest-flag-shine" /></div>}
+          {d?.c.iso && (
+            <div className="dest-flag2" aria-hidden="true">
+              <img src={`/flags/${d.c.iso}.svg`} alt="" width="120" height="90" />
+              <span className="dest-flag-shine" />
+            </div>
+          )}
           <div className="dest-text">
             <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 14, background: 'var(--ground)' }}>→ לטיסה שלי</button>
             <h1>{d ? d.city : 'היעד שלך'}</h1>
             {d?.country && d.country !== d.city && <span className="dest-country">{d.country}</span>}
-            <span className="dest-sub">כל מה שכדאי לדעת לפני שטסים ✈️</span>
+            <span className="dest-sub">מה שכדאי לדעת לפני שטסים ✈️</span>
           </div>
         </div>
         <TravelersArt />

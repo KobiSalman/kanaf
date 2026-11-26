@@ -233,3 +233,10 @@ button:disabled { opacity: 0.6; cursor: default; }
 .bp-stamp-sub { font-size: 11px; font-weight: 700; }
 @keyframes stamp-in { 0% { opacity: 0; transform: rotate(-8deg) scale(1.8); } 100% { opacity: 1; transform: rotate(-8deg) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .bp-stamp { animation: none; } }
+
+/* הדגל המלא, בצד השמאלי של כותרת היעד */
+.dest-top { display: flex; align-items: center; justify-content: space-between; }
+.dest-text { width: auto; flex: 1; }
+.dest-flag2 { position: relative; flex: none; order: 2; margin: 18px 0 18px 18px; width: 120px; height: 90px; border-radius: 12px; overflow: hidden; transform: rotate(-4deg); box-shadow: 0 10px 22px rgba(14, 42, 71, 0.22), 0 0 0 1px rgba(14, 42, 71, 0.08); }
+.dest-flag2 img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.dest-flag2 .dest-flag-shine { position: absolute; inset: 0; }

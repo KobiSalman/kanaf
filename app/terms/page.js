@@ -61,7 +61,8 @@ export default function Terms() {
           <li>מיקום מטוסים בזמן אמת: adsb.lol, רשת קהילתית של קולטני ADS-B.</li>
           <li>תמונות מטוסים: Planespotters.net. זכויות כל תמונה שמורות לצלם שמופיע לידה.</li>
           <li>לוגואים של חברות תעופה מוצגים לצורך זיהוי בלבד, והם שייכים לבעליהם.</li>
-          <li>מפות ומדינות: Natural Earth ו-world-atlas.</li>
+          <li>מפות ומדינות: Natural Earth ו-world-atlas. דגלים: flag-icons (רישיון MIT).</li>
+          <li>שערי מטבע: הבנק המרכזי האירופי, דרך frankfurter.dev.</li>
         </ul>
       </Section>
 
