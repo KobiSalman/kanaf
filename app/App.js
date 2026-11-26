@@ -1060,7 +1060,7 @@ export default function App() {
       const res = await fetch(`/api/flight?flight=${encodeURIComponent(no)}&date=${encodeURIComponent(d)}`);
       const body = await res.json();
       if (!res.ok) { setError(body.error || 'משהו השתבש'); }
-      else { setFlight(body); setEditing(false); try { localStorage.setItem('kanaf:last', JSON.stringify({ no, d })); } catch {} }
+      else { setFlight(body); setEditing(false); }
     } catch {
       setError('אין חיבור לאינטרנט');
     }
@@ -1068,18 +1068,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // משתמש חדש רואה קודם "לאן טסים?". משתמש חוזר רואה את הטיסה האחרונה שלו, אם היא לא עברה כבר
+    // כל פתיחה מתחילה במסך "לאן טסים?". רק קישור משותף (?f=) פותח ישר טיסה
     let no = '', d = todayIn();
-    try {
-      const last = JSON.parse(localStorage.getItem('kanaf:last') || 'null');
-      const yesterday = new Date(Date.parse(todayIn()) - 864e5).toISOString().slice(0, 10);
-      if (last?.no && (last.d || '') >= yesterday) { no = last.no; d = last.d || d; }
-    } catch {}
     // קישור משותף: ?f=LY315&d=2026-11-25 פותח ישר את הטיסה הזו
     try {
       const u = new URLSearchParams(window.location.search);
       const sf = (u.get('f') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (sf) { no = sf; d = /^\d{4}-\d{2}-\d{2}$/.test(u.get('d') || '') ? u.get('d') : todayIn(); }
+      // מנקים את הקישור מהכתובת, כדי שרענון או פתיחה מחדש יחזירו למסך הפתיחה
+      if (sf) window.history.replaceState(null, '', window.location.pathname);
     } catch {}
     setFlightNo(no); setDate(d);
     if (no) search(no, d);
