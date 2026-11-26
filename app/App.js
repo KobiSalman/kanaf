@@ -889,7 +889,7 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
               : <div className="tile"><span className="label">מיקום</span><span className="value" style={{ fontSize: 16 }}>{live.latitude.toFixed(2)}°, {live.longitude.toFixed(2)}°</span></div>}
           </div>
         ) : (
-          <div className="card cream">{landed ? 'הטיסה נחתה.' : departed ? (f.viewEstimated ? 'אין כרגע קליטה של המטוס. מעל ירדן, סעודיה והמפרץ יש מעט קולטנים, אז שם המיקום מוצג כהערכה. הוא יתעדכן לבד כשהמטוס ייקלט שוב.' : 'מיקום חי עוד לא התקבל מהמקור. נסה לרענן בעוד כמה דקות.') : 'המיקום החי יופיע אחרי ההמראה.'}</div>
+          <div className="card cream">{landed ? 'הטיסה נחתה.' : departed ? (f.viewEstimated ? 'אין כרגע קליטה של המטוס. מעל ירדן, סעודיה והמפרץ יש מעט קולטנים, אז שם המיקום מוצג כהערכה. הוא יתעדכן לבד כשהמטוס ייקלט שוב.' : 'המטוס באוויר, אבל כרגע הוא מחוץ לטווח של קולטני המיקום. בחלק מהמסלולים, למשל מעל סעודיה, המפרץ והאוקיינוס ההודי, כמעט אין קליטה. המיקום יופיע לבד כשהמטוס ייקלט שוב.') : 'המיקום החי יופיע אחרי ההמראה.'}</div>
         )}
 
         <section className="card">
@@ -1137,7 +1137,8 @@ export default function App() {
 
   // מיקום חי בזמן אמת מ-adsb.lol, כל 15 שניות כשהדף פתוח
   const altCallsign = useRef(null);
-  const callsign = flight?.callsign;
+  // בלי אות קריאה משלה (למשל TG4586, כשאין לנו את קוד ה-ICAO של החברה): לוקחים את אות הקריאה של טיסת שיתוף הקוד
+  const callsign = flight?.callsign || (flight?.codeshares || []).map((c) => c.callsign).find(Boolean) || null;
   const flightReg = flight?.aircraft?.registration;
   useEffect(() => {
     setAdsb(null); setEstimate(null); setWasAirborne(false); altCallsign.current = null;
