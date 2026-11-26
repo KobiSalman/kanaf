@@ -208,7 +208,7 @@ export function DestinationTab({ f, back }) {
             <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 14, background: 'var(--ground)' }}>→ לטיסה שלי</button>
             <h1>{d ? d.city : 'היעד שלך'}</h1>
             {d?.country && d.country !== d.city && <span className="dest-country">{d.country}</span>}
-            <span className="dest-sub">מה שכדאי לדעת לפני שטסים ✈️</span>
+            <span className="dest-sub">מה שכדאי לדעת לפני שטסים\u00A0✈️</span>
           </div>
         </div>
         <TravelersArt />

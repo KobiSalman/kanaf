@@ -32,6 +32,9 @@ for (const r of flights) {
   try {
     const f = await (await fetch(`${BASE}/api/flight?flight=${code}&date=${date}`)).json();
     if (f.error) { out.result = 'flight-error'; out.note = f.error; results.push(out); continue; }
+    // טיסה שכבר נחתה ביעד (הלוח של נתב״ג לא מעדכן נחיתה בחו״ל): לא בודקים
+    const etaAt = localToInstant(f.arrival.estimated || f.arrival.scheduled, f.arrival.timezone);
+    if (f.direction === 'departure' && etaAt && etaAt < Date.now()) { out.result = 'landed'; results.push(out); continue; }
     const callsign = f.callsign || (f.codeshares || []).map((c) => c.callsign).find(Boolean);
     if (!callsign) { out.result = 'no-callsign'; results.push(out); continue; }
     const q = new URLSearchParams({ callsign, reg: f.aircraft?.registration || '' });
@@ -54,5 +57,5 @@ for (const r of flights) {
 }
 
 const count = (k) => results.filter((x) => x.result === k).length;
-console.log(`\nנמצא לפי אות קריאה: ${count('callsign')} · לפי מסלול: ${count('route')} · הערכה לפי זמן: ${count('estimate')} · כלום: ${count('nothing')} · בלי אות קריאה: ${count('no-callsign')} · שגיאות: ${count('flight-error') + count('live-error') + count('exception')}`);
+console.log(`\nנמצא לפי אות קריאה: ${count('callsign')} · לפי מסלול: ${count('route')} · הערכה לפי זמן: ${count('estimate')} · כלום: ${count('nothing')} · בלי אות קריאה: ${count('no-callsign')} · שגיאות: ${count('flight-error') + count('live-error') + count('exception')} · כבר נחתו: ${count('landed')}`);
 for (const x of results) console.log([x.result.padEnd(12), x.code.padEnd(8), x.dir, x.loc, x.ptol.slice(11, 16), x.callsign || '', x.broadcast || '', x.over || '', x.note || ''].join(' | '));

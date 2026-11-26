@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "vitest run && next build",
     "start": "next start",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "node scripts/e2e.cjs",
+    "scan:live": "node scripts/scan-live.mjs"
   },
   "dependencies": {
     "@rapideditor/country-coder": "^6.0.0",
