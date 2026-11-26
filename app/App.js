@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
 import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
+import { BrandBar } from './Logo';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
@@ -1152,6 +1153,7 @@ export default function App() {
 
   return (
     <main className="app">
+      <BrandBar />
       {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
       {tab === 'live' && <LiveTab f={view} now={now} liveLoading={liveLoading} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}

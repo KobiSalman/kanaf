@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandBar } from '../Logo';
 
 export const metadata = {
   title: 'תנאי שימוש ופרטיות · כנף',
@@ -20,7 +21,9 @@ function Section({ title, children }) {
 
 export default function Terms() {
   return (
-    <main className="app" style={{ padding: '20px 16px 40px', display: 'flex', flexDirection: 'column', gap: 12, lineHeight: 1.6 }}>
+    <>
+    <BrandBar />
+    <main className="app" style={{ padding: '8px 16px 40px', display: 'flex', flexDirection: 'column', gap: 12, lineHeight: 1.6 }}>
       <Link href="/" className="small" style={{ color: 'inherit' }}>→ חזרה לכנף</Link>
       <h1 style={{ margin: '4px 0 0', fontSize: 24 }}>תנאי שימוש ופרטיות</h1>
       <p className="small muted" style={{ margin: 0 }}>עודכן לאחרונה: {UPDATED}</p>
@@ -96,5 +99,6 @@ export default function Terms() {
 
       <Link href="/" className="small" style={{ color: 'inherit', marginTop: 8 }}>→ חזרה לכנף</Link>
     </main>
+    </>
   );
 }
