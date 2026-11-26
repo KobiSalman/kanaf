@@ -49,7 +49,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
         if (!Number.isFinite(r.fn) || /DEPARTED/.test(r.st)) continue;
         const key = r.ptol;
         const g = groups.get(key) || { ptol: r.ptol, st: r.st, stHe: r.stHe, term: r.term, codes: [] };
-        g.codes.push({ op: r.op, fn: r.fn, opName: r.opName });
+        g.codes.push({ op: r.op, fn: r.fn, no: r.no ?? String(r.fn), opName: r.opName });
         groups.set(key, g);
       }
       const list = [...groups.values()].map((g) => ({ ...g, codes: g.codes.sort((a, b) => a.fn - b.fn) })).sort((a, b) => a.ptol.localeCompare(b.ptol));
@@ -93,13 +93,13 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
           return (
             <div key={g.ptol} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {showDay && <span className="small strong muted" style={{ marginTop: 4 }}>{day}</span>}
-              <button type="button" onClick={() => onPick(`${main.op}${main.fn}`, g.ptol.slice(0, 10))}
+              <button type="button" onClick={() => onPick(`${main.op}${main.no}`, g.ptol.slice(0, 10))}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 16, border: 'none', background: 'var(--ground)', fontFamily: 'inherit', color: 'inherit', textAlign: 'right', cursor: 'pointer', opacity: cancelled ? 0.6 : 1 }}>
                 <span style={{ fontSize: 22, fontWeight: 800, minWidth: 62 }}>{g.ptol.slice(11, 16)}</span>
                 <AirlineLogo iata={main.op} name={main.opName} size={28} />
                 <span style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 1 }}>
-                  <span className="strong">{main.opName || main.op} · {main.op}{main.fn}</span>
-                  {g.codes.length > 1 && <span className="small muted">גם: {g.codes.slice(1).map((c) => `${c.op}${c.fn}`).join(', ')}</span>}
+                  <span className="strong">{main.opName || main.op} · {main.op}{main.no}</span>
+                  {g.codes.length > 1 && <span className="small muted">גם: {g.codes.slice(1).map((c) => `${c.op}${c.no}`).join(', ')}</span>}
                 </span>
                 {(cancelled || late) && <span className={`badge ${cancelled ? 'bad' : 'warn'}`}>{g.stHe}</span>}
               </button>

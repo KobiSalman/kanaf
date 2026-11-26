@@ -6,6 +6,7 @@ import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { BrandBar } from './Logo';
 import NearbyMap from './NearbyMap';
 import DestinationPicker from './DestinationPicker';
+import { codeshareInfo, delayStamp } from '../lib/flightLogic';
 import { DestinationTeaser, DestinationTab } from './Destination';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
@@ -441,7 +442,7 @@ function BoardTab({ now, onOpen }) {
               const late = r.ptol !== r.stol;
               const past = r.t < now;
               return (
-                <button key={`${r.op}${r.fn}${r.stol}`} type="button" onClick={() => onOpen(`${r.op}${r.fn}`, r.stol.slice(0, 10))}
+                <button key={`${r.op}${r.fn}${r.stol}`} type="button" onClick={() => onOpen(`${r.op}${r.no ?? r.fn}`, r.stol.slice(0, 10))}
                   style={{ display: 'grid', gridTemplateColumns: '58px 1fr auto', gap: 10, alignItems: 'center', padding: '10px 8px', border: 'none',
                     borderBottom: '1px solid #EAF1F7', background: 'none', textAlign: 'right', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', opacity: past ? 0.6 : 1 }}>
                   <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -452,7 +453,7 @@ function BoardTab({ now, onOpen }) {
                     <AirlineLogo iata={r.op} name={r.opName} size={24} />
                     <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <span className="strong" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.city}</span>
-                      <span className="muted small">{r.op}{r.fn} · {r.opName}{r.term ? ` · טרמינל ${r.term}` : ''}</span>
+                      <span className="muted small">{r.op}{r.no ?? r.fn} · {r.opName}{r.term ? ` · טרמינל ${r.term}` : ''}</span>
                     </span>
                   </span>
                   <span className={`badge ${BOARD_TONE(r.st)}`} style={{ fontSize: 12 }}>{r.stHe || r.st}</span>
@@ -488,19 +489,6 @@ function ShareCard({ f }) {
   );
 }
 
-// טיסה בשיתוף קוד: מי באמת מפעיל את הטיסה. אם המטוס כבר משדר, לפי אות הקריאה שלו (ודאי).
-// אחרת לפי מספר הטיסה הנמוך מבין כולם, כי מספרי שיתוף קוד הם בדרך כלל גבוהים (הערכה)
-function codeshareInfo(f) {
-  const others = f.codeshares || [];
-  if (!others.length) return null;
-  const own = { flight: f.flight, iata: f.airlineIata, fn: Number(String(f.flight).replace(/^\D+/, '')), airline: f.airline, callsign: f.callsign, own: true };
-  const all = [own, ...others];
-  let op = f.broadcastCallsign ? all.find((c) => c.callsign && c.callsign === f.broadcastCallsign) : null;
-  const certain = !!op;
-  if (!op) op = all.reduce((a, b) => (b.fn < a.fn ? b : a));
-  return { op, certain, others: all.filter((c) => c !== op) };
-}
-
 function CodeshareCard({ f }) {
   const c = codeshareInfo(f);
   if (!c) return null;
@@ -525,23 +513,6 @@ function CodeshareCard({ f }) {
       <span className="small muted">תנאי כבודה ושינויים בכרטיס נקבעים בדרך כלל לפי החברה שממנה קניתם. כדאי לבדוק מולה.</span>
     </section>
   );
-}
-
-// חותמת אדומה על כרטיס הטיסה: עיכוב של 15 דקות ומעלה, או טיסה שבוטלה
-function delayStamp(f) {
-  if (f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '')) return { title: 'בוטלה', sub: 'בדקו מול חברת התעופה' };
-  const arr = f.direction === 'arrival';
-  const side = arr ? f.arrival : f.departure;
-  const dl = side.delay || (arr ? null : f.arrival.delay) || null;
-  const flagged = f.statusEn === 'DELAYED';
-  if (!(dl >= 15) && !flagged) return null;
-  const done = arr ? !!f.arrival.actual : !!f.departure.actual;
-  const t = hhmm(side.actual || side.estimated);
-  return {
-    title: 'עיכוב',
-    line: dl >= 15 ? minutesLabel(dl) : null,
-    sub: t ? `${done ? (arr ? 'נחתה' : 'המריאה') : arr ? 'נחיתה' : 'המראה'} בשעה ${t}` : null
-  };
 }
 
 function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, goDest, inbound, goStatus, goLive, loading, liveLoading }) {
@@ -903,7 +874,7 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
         </section>
 
         <button type="button" className="btn-sun" onClick={onRefresh} disabled={loading} style={{ flex: 'none' }}>{loading ? 'מרענן…' : 'רענן נתונים'}</button>
-        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל 15 שניות.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}
+        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל 30 שניות.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}
           {f.broadcastCallsign && f.callsign && f.broadcastCallsign !== f.callsign ? ` המטוס משדר כ-${f.broadcastCallsign}${f.matchedByRoute ? ', וזיהינו אותו לפי החברה וכיוון הטיסה' : ''}.` : ''}</p>
       </div>
     </>

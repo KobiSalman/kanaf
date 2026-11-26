@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { localToInstant } from '../lib/time';
+import { checkinLoad, levelOf, leaveTarget, pickupTarget } from '../lib/airportLogic';
+export { checkinLoad, arrivalLoad, levelOf } from '../lib/airportLogic';
 
 const HOUR = 3600e3, MIN = 60e3;
 
@@ -10,8 +12,6 @@ export function clockIL(ms) {
 }
 
 // עיגול לרבע שעה כלפי מטה: "לצאת ב-14:45" ולא "14:52"
-const floor15 = (ms) => Math.floor(ms / (15 * MIN)) * 15 * MIN;
-const ceil5 = (ms) => Math.ceil(ms / (5 * MIN)) * 5 * MIN;
 
 // לוח העומס של נתב״ג: כמה המראות ונחיתות בכל שעה. נטען פעם אחת ומתעדכן כל 10 דקות
 let crowdCache = null;
@@ -34,33 +34,6 @@ export function useCrowd() {
     return () => { stop = true; clearInterval(id); };
   }, []);
   return crowd;
-}
-
-const bucket = (crowd, t) => crowd?.hours?.find((h) => t >= h.t && t < h.t + HOUR);
-
-// עומס בצ׳ק-אין בשעה מסוימת: לפי הטיסות שממריאות כשלוש שעות אחר כך (2 עד 4 שעות, עם משקל)
-export function checkinLoad(crowd, t) {
-  if (!crowd) return null;
-  const d = (h) => bucket(crowd, t + h * HOUR)?.dep ?? null;
-  const [a, b, c] = [d(2), d(3), d(4)];
-  if (b == null) return null;
-  return ((a ?? b) * 0.5 + b + (c ?? b) * 0.5) / 2;
-}
-
-// כמה מטוסים נוחתים בסביבת שעת הנחיתה (שעה לפני ושעה אחרי, עם משקל)
-export function arrivalLoad(crowd, t) {
-  if (!crowd) return null;
-  const n = (h) => bucket(crowd, t + h * HOUR)?.arr ?? null;
-  const [a, b, c] = [n(-1), n(0), n(1)];
-  if (b == null) return null;
-  return ((a ?? b) * 0.5 + b + (c ?? b) * 0.5) / 2;
-}
-
-export function levelOf(n) {
-  if (n == null) return null;
-  if (n >= 12) return { key: 'high', text: 'עמוס', color: '#B4471F', bg: '#FFD9D2' };
-  if (n >= 7) return { key: 'mid', text: 'בינוני', color: '#7A5A00', bg: '#FFF3C4' };
-  return { key: 'low', text: 'רגוע', color: '#0B5A33', bg: '#C8F5DC' };
 }
 
 // טיימר שמתקתק כל שנייה עד שעת היעד
@@ -101,11 +74,7 @@ export function LeaveHomeCard({ f, now }) {
   const crowd = useCrowd();
   const dep = localToInstant(f.departure.estimated || f.departure.scheduled, f.departure.timezone || 'Asia/Jerusalem');
   if (!dep || dep < now || dep - now > 36 * HOUR) return null;
-  // 3 שעות לפני (לאילת שעתיים), ועוד חצי שעה כשצפוי עומס בצ׳ק-אין
-  const domestic = f.arrival.iata === 'ETM' || f.arrival.iata === 'EIL';
-  const raw = dep - (domestic ? 2 : 3) * HOUR;
-  const extra = !domestic && levelOf(checkinLoad(crowd, raw))?.key === 'high' ? 30 : 0;
-  const target = floor15(raw - extra * MIN);
+  const target = leaveTarget(f, dep, crowd);
   return <TimerCard title="מתי להיות בשדה?" label="להיות בנתב״ג עד השעה" target={target} doneText="הגיע הזמן להיות בשדה!" />;
 }
 
@@ -114,10 +83,7 @@ export function PickupCard({ f, now }) {
   const crowd = useCrowd();
   const land = localToInstant(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled, f.arrival.timezone || 'Asia/Jerusalem');
   if (!land) return null;
-  // יציאה מהטרמינל: ירידה מהמטוס, ביקורת גבולות ומזוודות. כ-30 דקות, יותר כשהרבה מטוסים נוחתים יחד
-  const lv = levelOf(arrivalLoad(crowd, land));
-  const add = lv?.key === 'high' ? 20 : lv?.key === 'mid' ? 10 : 0;
-  const target = ceil5(land + (30 + add) * MIN);
+  const target = pickupTarget(land, crowd);
   if (now > target + 30 * MIN || target - now > 36 * HOUR) return null;
   return <TimerCard title="באים לאסוף?" label="להיות בנתב״ג בשעה" target={target} doneText="הנוסע יוצא עכשיו" />;
 }

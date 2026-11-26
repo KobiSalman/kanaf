@@ -23,7 +23,7 @@ export async function GET(request) {
     .map((r) => ({ ...r, t: localToInstant(r.ptol, 'Asia/Jerusalem') }))
     .filter((r) => r.t && r.t > now - hoursBack * 3600e3 && r.t < now + hoursAhead * 3600e3)
     .filter((r) => !loc || r.loc === loc)
-    .filter((r) => !q || [r.city, r.cityEn, r.country, r.loc, r.opName, r.op, `${r.op}${r.fn}`].some((x) => String(x).toLowerCase().includes(q)))
+    .filter((r) => !q || [r.city, r.cityEn, r.country, r.loc, r.opName, r.op, `${r.op}${r.no ?? r.fn}`].some((x) => String(x).toLowerCase().includes(q)))
     .sort((a, b) => a.t - b.t)
     .slice(0, 200);
 
