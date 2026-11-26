@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { lookupLive, CALLSIGN_RE } from '../../../lib/adsb';
+import { lookupLive, estimatePosition, CALLSIGN_RE } from '../../../lib/adsb';
 import { cachedFetch, cdnHeaders, noStore, RateLimited } from '../../../lib/cache';
 
 // מיקום חי בזמן אמת מרשת ה-ADS-B הקהילתית adsb.lol, דרך המטמון המשותף:
@@ -12,17 +12,23 @@ export async function GET(request) {
   }
   const reg = (searchParams.get('reg') || '').trim().toUpperCase();
   const alt = (searchParams.get('alt') || '').trim().toUpperCase();
+  const cs = (searchParams.get('cs') || '').toUpperCase().split(',').map((x) => x.trim()).filter((x) => CALLSIGN_RE.test(x)).slice(0, 4);
   const from = (searchParams.get('from') || '').trim().toUpperCase();
   const to = (searchParams.get('to') || '').trim().toUpperCase();
   const direction = searchParams.get('dir') === 'arrival' ? 'arrival' : 'departure';
   const etaMs = Number(searchParams.get('eta')) || null;
   const depMs = Number(searchParams.get('dep')) || null;
-  const key = `live:${[callsign, reg, alt, from, to].join('|')}`;
+  const key = `live:${[callsign, reg, alt, cs.join(','), from, to].join('|')}`;
 
   try {
     const r = await cachedFetch(key, { freshMs: 10000, keepSeconds: 900, source: 'adsb' },
-      () => lookupLive({ callsign, reg, alt, from, to, direction, etaMs, depMs }));
-    return NextResponse.json({ ...r.value, stale: r.stale }, { headers: cdnHeaders(10, 20) });
+      () => lookupLive({ callsign, reg, alt, cs, from, to, direction, etaMs, depMs }));
+    const body = { ...r.value, stale: r.stale };
+    if (!body.found) {
+      const est = estimatePosition({ from, to, depMs, etaMs, direction });
+      if (est) body.estimate = est;
+    }
+    return NextResponse.json(body, { headers: cdnHeaders(10, 20) });
   } catch (e) {
     const busy = e instanceof RateLimited;
     return NextResponse.json(

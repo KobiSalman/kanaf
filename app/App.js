@@ -813,8 +813,9 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
 
         {f.view?.over && (
           <section className="card big" style={{ gap: 6 }}>
-            <span className="small muted">{live && !live.isGround ? 'אתה עכשיו מעל' : 'המטוס נמצא ב'}</span>
+            <span className="small muted">{f.viewEstimated ? 'בערך מעל' : live && !live.isGround ? 'אתה עכשיו מעל' : 'המטוס נמצא ב'}</span>
             <span style={{ fontSize: 26, fontWeight: 800 }}>{f.view.over.name}</span>
+            {f.viewEstimated && <span className="small muted">הערכה לפי הזמן שעבר מההמראה ולפי המסלול הקצר. אין כרגע קליטה של המשדר של המטוס באזור הזה.</span>}
           </section>
         )}
 
@@ -848,7 +849,7 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
               : <div className="tile"><span className="label">מיקום</span><span className="value" style={{ fontSize: 16 }}>{live.latitude.toFixed(2)}°, {live.longitude.toFixed(2)}°</span></div>}
           </div>
         ) : (
-          <div className="card cream">{landed ? 'הטיסה נחתה.' : departed ? 'מיקום חי עוד לא התקבל מהמקור. נסה לרענן בעוד כמה דקות.' : 'המיקום החי יופיע אחרי ההמראה.'}</div>
+          <div className="card cream">{landed ? 'הטיסה נחתה.' : departed ? (f.viewEstimated ? 'אין כרגע קליטה של המטוס. מעל ירדן, סעודיה והמפרץ יש מעט קולטנים, אז שם המיקום מוצג כהערכה. הוא יתעדכן לבד כשהמטוס ייקלט שוב.' : 'מיקום חי עוד לא התקבל מהמקור. נסה לרענן בעוד כמה דקות.') : 'המיקום החי יופיע אחרי ההמראה.'}</div>
         )}
 
         <section className="card">
@@ -1060,6 +1061,7 @@ export default function App() {
   const [tab, setTab] = useState('flights');
   const [now, setNow] = useState(Date.now());
   const [adsb, setAdsb] = useState(null);
+  const [estimate, setEstimate] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [wasAirborne, setWasAirborne] = useState(false);
 
@@ -1098,7 +1100,7 @@ export default function App() {
   const callsign = flight?.callsign;
   const flightReg = flight?.aircraft?.registration;
   useEffect(() => {
-    setAdsb(null); setWasAirborne(false); altCallsign.current = null;
+    setAdsb(null); setEstimate(null); setWasAirborne(false); altCallsign.current = null;
     setLiveLoading(!!callsign);
   }, [callsign, flightReg]);
   usePolling(async (stopped) => {
@@ -1106,6 +1108,8 @@ export default function App() {
     let ok = false;
     try {
       const q = new URLSearchParams({ callsign, reg: flightReg || '', alt: altCallsign.current || '' });
+      const cs = (flight?.codeshares || []).map((c) => c.callsign).filter(Boolean);
+      if (cs.length) q.set('cs', cs.join(','));
       if (flight?.source === 'iaa') {
         q.set('from', flight.departure.iata || ''); q.set('to', flight.arrival.iata || ''); q.set('dir', flight.direction || 'departure');
         const eta = localToInstant(flight.arrival.estimated || flight.arrival.scheduled, flight.arrival.timezone);
@@ -1116,6 +1120,7 @@ export default function App() {
       const res = await fetch(`/api/live?${q}`);
       const body = await res.json();
       ok = res.ok;
+      if (!stopped() && res.ok) setEstimate(body.found ? null : body.estimate || null);
       if (!stopped() && res.ok && body.found) {
         setAdsb(body);
         if (body.broadcastCallsign) altCallsign.current = body.broadcastCallsign;
@@ -1164,7 +1169,9 @@ export default function App() {
           hex: adsb.hex || null
         }
       }
-    : flight;
+    : flight && estimate && !landedBySource
+      ? { ...flight, view: estimate.view, viewEstimated: true }
+      : flight;
 
   const searchCard = (
     <DestinationPicker
