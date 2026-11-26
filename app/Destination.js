@@ -19,6 +19,37 @@ function diffLabel(tz) {
   return d > 0 ? `${h} קדימה מישראל` : `${h} אחורה מישראל`;
 }
 
+// השעה עכשיו ביעד
+const clockIn = (tz) => new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(Date.now());
+
+// שקע חשמל במילים: האם התקע הישראלי נכנס, או איזה מתאם צריך
+export function plugInfo(plugs) {
+  const t = new Set((plugs.match(/\b[A-O]\b/g) || []));
+  const volt = /100V|120V/.test(plugs) ? ' המתח נמוך יותר מבישראל, אבל רוב המטענים של טלפונים ומחשבים מתאימים לו.' : '';
+  if (t.has('C') || t.has('E') || t.has('F')) {
+    return { fits: true, short: 'בלי מתאם', text: `התקע הישראלי הרגיל, עם 2 פינים עגולים, נכנס. למכשיר עם 3 פינים צריך מתאם.${volt}` };
+  }
+  if (t.has('G')) return { fits: false, short: 'צריך מתאם', text: `צריך מתאם לשקע בריטי, עם 3 פינים מלבניים גדולים.${volt}` };
+  if (t.has('A') || t.has('B')) return { fits: false, short: 'צריך מתאם', text: `צריך מתאם לשקע אמריקאי, עם 2 פינים שטוחים.${volt}` };
+  if (t.has('D') || t.has('M')) return { fits: false, short: 'צריך מתאם', text: `צריך מתאם לשקע עם 3 פינים עגולים גדולים.${volt}` };
+  return { fits: false, short: 'כדאי מתאם', text: 'כדאי לקחת מתאם אוניברסלי.' };
+}
+
+// רקע בצבעי הדגל של המדינה: פסים (אופקיים, אנכיים או אלכסוניים), ולפעמים עיגול, צלב או פס ליד התורן
+function flagBackground(flag) {
+  if (!flag) return null;
+  const list = flag.h || flag.v || flag.d || ['#FF9A76'];
+  const dir = flag.v ? 'to right' : flag.d ? '135deg' : 'to bottom';
+  const step = 100 / list.length;
+  const stops = list.map((c, i) => `${c} ${(i * step).toFixed(2)}% ${((i + 1) * step).toFixed(2)}%`).join(', ');
+  const layers = [];
+  if (flag.circle) layers.push(`radial-gradient(circle at 50% 50%, ${flag.circle} 0 22%, transparent 22.5%)`);
+  if (flag.cross) layers.push(`linear-gradient(to right, transparent 44%, ${flag.cross} 44% 56%, transparent 56%)`, `linear-gradient(to bottom, transparent 40%, ${flag.cross} 40% 60%, transparent 60%)`);
+  if (flag.band) layers.push(`linear-gradient(to right, ${flag.band} 0 34%, transparent 34%)`);
+  layers.push(`linear-gradient(${dir}, ${stops})`);
+  return layers.join(', ');
+}
+
 function useRate(code) {
   const [rate, setRate] = useState(null);
   useEffect(() => {
@@ -58,8 +89,8 @@ export function DestinationInfo({ f }) {
         <Tile label="שפה" value={c.lang} />
         <Tile label="מטבע" value={`${c.currency.name} (${c.currency.code})`} />
         {rateText && <Tile label="שער היום" value={rateText} />}
-        {diffLabel(a.timezone) && <Tile label="שעון" value={diffLabel(a.timezone)} />}
-        <Tile label="שקע חשמל" value={c.plugs} />
+        {diffLabel(a.timezone) && <Tile label="שעון" value={diffLabel(a.timezone).startsWith('אותה') ? diffLabel(a.timezone) : `${diffLabel(a.timezone).replace(' מישראל', '')} · עכשיו שם ${clockIn(a.timezone)}`} />}
+        <Tile label="שקע חשמל" value={plugInfo(c.plugs).text} wide />
         <Tile label="חירום" value={c.emergency} />
         <Tile label="נהיגה" value={`בצד ${c.drive}`} />
         <Tile label="טיפ" value={c.tip} wide />
@@ -117,7 +148,7 @@ function shortDiff(tz) {
 export function DestinationTeaser({ f, onOpen }) {
   const d = destOf(f);
   if (!d) return null;
-  const chips = [['💬', d.c.lang.split(',')[0]], ['💰', d.c.currency.name], ['🕐', shortDiff(d.tz)], ['🔌', d.c.plugs.split(' (')[0]]].filter(([, v]) => v);
+  const chips = [['💬', d.c.lang.split(',')[0]], ['💰', d.c.currency.name], ['🕐', shortDiff(d.tz)], ['🔌', plugInfo(d.c.plugs).short]].filter(([, v]) => v);
   return (
     <button type="button" onClick={onOpen} className="card dest-teaser" style={{ border: 'none', cursor: 'pointer', textAlign: 'right', fontFamily: 'inherit', color: 'var(--ink)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -142,11 +173,13 @@ export function DestinationTab({ f, back }) {
   const d = destOf(f);
   return (
     <>
-      <header className="hero short dest-hero">
+      <header className="hero short dest-hero" style={d?.c.flag ? { background: flagBackground(d.c.flag) } : undefined}>
         <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 15 }}>→ לטיסה שלי</button>
-        <span aria-hidden="true" style={{ fontSize: 54, lineHeight: 1 }}>🧳</span>
-        <h1 style={{ fontSize: 30 }}>{d ? d.city : 'היעד שלך'}</h1>
-        <p>{d?.country && d.country !== d.city ? `${d.country} · ` : ''}כל מה שכדאי לדעת לפני שטסים</p>
+        <div className="dest-title">
+          <span aria-hidden="true" style={{ fontSize: 40, lineHeight: 1 }}>🧳</span>
+          <h1 style={{ fontSize: 30 }}>{d ? d.city : 'היעד שלך'}</h1>
+          <p>{d?.country && d.country !== d.city ? `${d.country} · ` : ''}כל מה שכדאי לדעת לפני שטסים</p>
+        </div>
       </header>
       <div className="content flat">
         {d ? <><DestinationInfo f={f} /><DestinationRecs f={f} /></> : <div className="card">אין לנו עדיין מידע על היעד הזה.</div>}
