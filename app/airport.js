@@ -106,7 +106,7 @@ export function LeaveHomeCard({ f, now }) {
   const raw = dep - (domestic ? 2 : 3) * HOUR;
   const extra = !domestic && levelOf(checkinLoad(crowd, raw))?.key === 'high' ? 30 : 0;
   const target = floor15(raw - extra * MIN);
-  return <TimerCard title="עד שצריך להיות בשדה" label="להיות בנתב״ג עד השעה" target={target} doneText="הגיע הזמן להיות בשדה!" />;
+  return <TimerCard title="מתי להיות בשדה?" label="להיות בנתב״ג עד השעה" target={target} doneText="הגיע הזמן להיות בשדה!" />;
 }
 
 // ---------- טיסה שנוחתת בנתב״ג: מתי להיות בשדה כדי לאסוף ----------

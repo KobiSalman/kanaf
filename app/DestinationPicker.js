@@ -60,9 +60,9 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
   const nq = norm(q);
   const suggestions = useMemo(() => {
     if (!dests) return [];
-    if (!nq) return dests.slice(0, 8);
+    if (!nq) return dests.slice(0, 4);
     return dests.map((d) => ({ d, s: score(d, nq) })).filter((x) => x.s < Infinity)
-      .sort((a, b) => a.s - b.s || b.d.flights - a.d.flights).slice(0, 7).map((x) => x.d);
+      .sort((a, b) => a.s - b.s || b.d.flights - a.d.flights).slice(0, 4).map((x) => x.d);
   }, [dests, nq]);
 
   if (mode === 'number') {
