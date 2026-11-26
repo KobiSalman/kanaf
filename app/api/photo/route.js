@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cacheGet, cacheSet } from '../../../lib/cache';
+import { cacheGet, cacheSet, cdnHeaders } from '../../../lib/cache';
 
 // תמונה אמיתית של המטוס לפי מספר הרישום, מ-Planespotters.net (API ציבורי).
 // התנאים שלהם: להציג את שם הצלם ולקשר לעמוד התמונה באתר שלהם.
@@ -11,7 +11,7 @@ export async function GET(request) {
 
   const key = `photo2:${reg}`;
   const cached = await cacheGet(key);
-  if (cached) return NextResponse.json(cached.value);
+  if (cached) return NextResponse.json(cached.value, { headers: cdnHeaders(cached.value.found ? 86400 : 3600, 86400) });
 
   let body = { found: false };
   try {
@@ -41,5 +41,5 @@ export async function GET(request) {
   }
   // תמונה נשמרת לשבוע; "אין תמונה" נשמר ליום
   await cacheSet(key, body, body.found ? 7 * 24 * 3600 : 24 * 3600);
-  return NextResponse.json(body);
+  return NextResponse.json(body, { headers: cdnHeaders(body.found ? 86400 : 3600, 86400) });
 }

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { AIRPORTS } from '../../../lib/airports';
 import { distanceKm, bearingDeg } from '../../../lib/aviation';
+import { adsbFetch } from '../../../lib/adsb';
+import { cachedFetch, cdnHeaders, noStore, RateLimited } from '../../../lib/cache';
 
 // "המטוס הגיע?": איפה נמצא עכשיו המטוס ששובץ לטיסה שלך, לפי מספר הרישום שלו.
-const cache = new Map();
-const TTL_MS = 60 * 1000;
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -12,22 +12,23 @@ export async function GET(request) {
   const from = (searchParams.get('from') || '').trim().toUpperCase();
   const callsign = (searchParams.get('callsign') || '').trim().toUpperCase();
   if (!/^[A-Z0-9-]{3,10}$/.test(reg)) {
-    return NextResponse.json({ error: 'מספר רישום לא תקין' }, { status: 400 });
+    return NextResponse.json({ error: 'מספר רישום לא תקין' }, { status: 400, headers: noStore });
   }
 
-  const key = `${reg}|${from}|${callsign}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < TTL_MS) return NextResponse.json(hit.body);
-
-  let data;
+  let r;
   try {
-    const res = await fetch(`https://api.adsb.lol/v2/registration/${encodeURIComponent(reg)}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(String(res.status));
-    data = await res.json();
-  } catch {
-    return NextResponse.json({ error: 'לא הצלחנו לבדוק איפה המטוס' }, { status: 502 });
+    r = await cachedFetch(`inbound:${reg}|${from}|${callsign}`, { freshMs: 60000, keepSeconds: 3600, source: 'adsb' }, async () => {
+      const data = await adsbFetch(`/v2/registration/${encodeURIComponent(reg)}`);
+      return assess(data, from, callsign);
+    });
+  } catch (e) {
+    const busy = e instanceof RateLimited;
+    return NextResponse.json({ error: busy ? 'השירות עמוס כרגע' : 'לא הצלחנו לבדוק איפה המטוס', busy }, { status: busy ? 503 : 502, headers: noStore });
   }
+  return NextResponse.json({ ...r.value, stale: r.stale }, { headers: cdnHeaders(60, 120) });
+}
 
+function assess(data, from, callsign) {
   const ac = (data.ac || []).find((a) => typeof a.lat === 'number');
   const airport = AIRPORTS[from];
   let body;
@@ -60,6 +61,5 @@ export async function GET(request) {
   }
 
   body.checkedAt = new Date().toISOString();
-  cache.set(key, { at: Date.now(), body });
-  return NextResponse.json(body);
+  return body;
 }

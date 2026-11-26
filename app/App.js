@@ -157,6 +157,24 @@ function InboundCard({ f, inbound, now }) {
   );
 }
 
+// רענון קבוע עם האטה: כשהשירות עמוס או נכשל, מחכים יותר זמן בין ניסיונות (עד 2 דקות),
+// והמסך ממשיך להציג את הנתון האחרון שהגיע
+function usePolling(fn, baseMs, deps) {
+  useEffect(() => {
+    let stop = false, timer = null, fails = 0;
+    const tick = async () => {
+      if (stop) return;
+      let ok = true;
+      if (!document.hidden) { try { ok = (await fn(() => stop)) !== false; } catch { ok = false; } }
+      fails = ok ? 0 : Math.min(fails + 1, 4);
+      if (!stop) timer = setTimeout(tick, Math.min(baseMs * 2 ** fails, 120000));
+    };
+    tick();
+    return () => { stop = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
+
 const TLV_COORDS = { lat: 32.0114, lon: 34.8867, label: 'נתב״ג' };
 
 function NearbyTab({ now }) {
@@ -177,23 +195,19 @@ function NearbyTab({ now }) {
 
   useEffect(() => { locate(); }, [locate]);
 
-  useEffect(() => {
-    if (!where) return;
-    let stop = false;
-    const load = async () => {
-      if (document.hidden) return;
-      try {
-        const res = await fetch(`/api/nearby?lat=${where.lat}&lon=${where.lon}`);
-        const body = await res.json();
-        if (stop) return;
-        if (!res.ok) setError(body.error || 'משהו השתבש');
-        else { setData(body); setError(''); }
-      } catch { if (!stop) setError('אין חיבור לאינטרנט'); }
-    };
-    load();
-    const id = setInterval(load, 20000);
-    return () => { stop = true; clearInterval(id); };
-  }, [where]);
+  usePolling(async (stopped) => {
+    if (!where) return true;
+    // מעגלים את המיקום לכ-2 ק״מ כבר בטלפון: המיקום המדויק לא יוצא מהמכשיר
+    const lat = (Math.round(where.lat * 50) / 50).toFixed(2), lon = (Math.round(where.lon * 50) / 50).toFixed(2);
+    try {
+      const res = await fetch(`/api/nearby?lat=${lat}&lon=${lon}`);
+      const body = await res.json();
+      if (stopped()) return true;
+      if (!res.ok) { if (!data) setError(body.error || 'משהו השתבש'); return false; }
+      setData(body); setError('');
+      return true;
+    } catch { if (!stopped() && !data) setError('אין חיבור לאינטרנט'); return false; }
+  }, 20000, [where]);
 
   const planes = data?.planes || [];
   const flying = planes.filter((p) => !p.onGround);
@@ -251,6 +265,7 @@ function NearbyTab({ now }) {
         )}
 
         {data && <p className="small muted" style={{ margin: 0 }}>נתונים בזמן אמת מרשת ADS-B (adsb.lol), מתעדכנים כל 20 שניות · {agoLabel(now - Date.parse(data.at))}. מטוסים צבאיים או פרטיים לא תמיד משדרים זיהוי.</p>}
+        <p className="small muted" style={{ margin: 0 }}>פרטיות: המיקום שלך מעוגל לכ-2 ק״מ עוד בטלפון, נשלח רק כדי למצוא מטוסים סביבך, ולא נשמר אצלנו עם שום פרט מזהה.</p>
       </div>
     </>
   );
@@ -1059,33 +1074,31 @@ export default function App() {
   useEffect(() => {
     setAdsb(null); setWasAirborne(false); altCallsign.current = null;
     setLiveLoading(!!callsign);
-    if (!callsign) return;
-    let stop = false;
-    const poll = async () => {
-      if (document.hidden) return;
-      try {
-        const q = new URLSearchParams({ callsign, reg: flightReg || '', alt: altCallsign.current || '' });
-        if (flight?.source === 'iaa') {
-          q.set('from', flight.departure.iata || ''); q.set('to', flight.arrival.iata || ''); q.set('dir', flight.direction || 'departure');
-          const eta = localToInstant(flight.arrival.estimated || flight.arrival.scheduled, flight.arrival.timezone);
-          if (eta) q.set('eta', String(eta));
-          const dep = localToInstant(flight.departure.actual || flight.departure.estimated || flight.departure.scheduled, flight.departure.timezone);
-          if (dep) q.set('dep', String(dep));
-        }
-        const res = await fetch(`/api/live?${q}`);
-        const body = await res.json();
-        if (!stop && res.ok && body.found) {
-          setAdsb(body);
-          if (body.broadcastCallsign) altCallsign.current = body.broadcastCallsign;
-          if (!body.live.isGround) setWasAirborne(true);
-        }
-      } catch {}
-      if (!stop) setLiveLoading(false);
-    };
-    poll();
-    const id = setInterval(poll, 15000);
-    return () => { stop = true; clearInterval(id); };
   }, [callsign, flightReg]);
+  usePolling(async (stopped) => {
+    if (!callsign) return true;
+    let ok = false;
+    try {
+      const q = new URLSearchParams({ callsign, reg: flightReg || '', alt: altCallsign.current || '' });
+      if (flight?.source === 'iaa') {
+        q.set('from', flight.departure.iata || ''); q.set('to', flight.arrival.iata || ''); q.set('dir', flight.direction || 'departure');
+        const eta = localToInstant(flight.arrival.estimated || flight.arrival.scheduled, flight.arrival.timezone);
+        if (eta) q.set('eta', String(Math.round(eta / 60000) * 60000));
+        const dep = localToInstant(flight.departure.actual || flight.departure.estimated || flight.departure.scheduled, flight.departure.timezone);
+        if (dep) q.set('dep', String(Math.round(dep / 60000) * 60000));
+      }
+      const res = await fetch(`/api/live?${q}`);
+      const body = await res.json();
+      ok = res.ok;
+      if (!stopped() && res.ok && body.found) {
+        setAdsb(body);
+        if (body.broadcastCallsign) altCallsign.current = body.broadcastCallsign;
+        if (!body.live.isGround) setWasAirborne(true);
+      }
+    } catch {}
+    if (!stopped()) setLiveLoading(false);
+    return ok;
+  }, 15000, [callsign, flightReg]);
 
   // "המטוס הגיע?": בדיקה כל דקה, רק לפני ההמראה
   const [inbound, setInbound] = useState(null);

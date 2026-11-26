@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fullBoard } from '../../../lib/iaa';
 import { localToInstant } from '../../../lib/time';
+import { cdnHeaders, noStore } from '../../../lib/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export async function GET(request) {
 
   let board;
   try { board = await fullBoard(); } catch {
-    return NextResponse.json({ error: 'הלוח של נתב״ג לא זמין כרגע. נסה שוב בעוד כמה דקות.' }, { status: 502 });
+    return NextResponse.json({ error: 'הלוח של נתב״ג לא זמין כרגע. נסה שוב בעוד כמה דקות.' }, { status: 502, headers: noStore });
   }
   const now = Date.now();
   const rows = board.rows
@@ -24,5 +25,5 @@ export async function GET(request) {
     .sort((a, b) => a.t - b.t)
     .slice(0, 200);
 
-  return NextResponse.json({ dir, rows, at: new Date(board.at).toISOString(), stale: !!board.stale });
+  return NextResponse.json({ dir, rows, at: new Date(board.at).toISOString(), stale: !!board.stale }, { headers: cdnHeaders(60, 300) });
 }

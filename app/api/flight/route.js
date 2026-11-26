@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cacheGet, cacheSet } from '../../../lib/cache';
+import { cachedFetch, cdnHeaders, noStore } from '../../../lib/cache';
 import { localToInstant } from '../../../lib/time';
 import { lookupLive, CALLSIGN_RE } from '../../../lib/adsb';
 import { iaaFlight } from '../../../lib/iaa';
@@ -90,7 +90,7 @@ export async function GET(request) {
   // אות קריאה עם אותיות (LOT2YE): אין לו זמנים ב-Aviationstack, אז מחפשים אותו באוויר
   if (!isFlightNumber && CALLSIGN_RE.test(raw)) {
     const lo = await liveOnly(raw, date, 'callsign');
-    if (lo) return NextResponse.json(lo);
+    if (lo) return NextResponse.json(lo, { headers: cdnHeaders(15, 30) });
     return NextResponse.json({ error: `${raw} נראה כמו אות קריאה של מטוס, אבל הוא לא משדר כרגע. אפשר לחפש לפי מספר הטיסה שבכרטיס, למשל LO152.` }, { status: 404 });
   }
   if (!isFlightNumber) {
@@ -99,7 +99,7 @@ export async function GET(request) {
   // 1. לוח נתב״ג של רשות שדות התעופה: חינמי, רשמי, ומכסה כל טיסה מישראל ואליה
   let iaa = null;
   try { iaa = await iaaFlight(flight, date); } catch {}
-  if (iaa?.flight) return NextResponse.json(iaa.flight);
+  if (iaa?.flight) return NextResponse.json(iaa.flight, { headers: cdnHeaders(60, 300) });
 
   // 2. טיסה שלא עוברת בישראל (או שאינה בלוח): Aviationstack
   const key = process.env.AVIATIONSTACK_KEY;
@@ -107,43 +107,33 @@ export async function GET(request) {
     return NextResponse.json({ error: 'חסר מפתח API בשרת (AVIATIONSTACK_KEY)' }, { status: 500 });
   }
 
-  const cacheKey = `flight:${flight}`;
-  const cached = await cacheGet(cacheKey);
-  let payload = cached ? { at: cached.at, data: cached.value } : null;
-  let stale = false;
-
-  if (!payload || Date.now() - payload.at > freshSeconds(payload.data) * 1000) {
-    // 3 אותיות + מספר = קוד ICAO (למשל ISR730), 2 תווים + מספר = קוד IATA (למשל 6H730)
-    const param = /^[A-Z]{3}\d/.test(flight) ? 'flight_icao' : 'flight_iata';
-    const url = `https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&${param}=${flight}&limit=20`;
-    let body = null, ok = false, quota = false;
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      body = await res.json().catch(() => null);
-      ok = res.ok && body && !body.error;
-      quota = body?.error?.code === 'usage_limit_reached';
-    } catch {}
-
-    if (ok) {
-      const entry = await cacheSet(cacheKey, (body.data || []).map(slim), KEEP_SECONDS);
-      payload = { at: entry.at, data: entry.value };
-    } else if (payload) {
-      // המקור לא זמין או שנגמרו הבקשות: מציגים את הנתונים האחרונים שיש, ומסמנים שהם לא עדכניים
-      stale = true;
-    } else {
-      // אין זמנים: אם זה קוד ICAO (ELY315), אולי המטוס באוויר עכשיו
-      if (/^[A-Z]{3}\d/.test(flight)) {
-        const lo = await liveOnly(flight, date, quota ? 'quota' : 'unavailable');
-        if (lo) return NextResponse.json(lo);
-      }
-      if (iaa?.dates?.length) {
-        return NextResponse.json({ error: `לא מצאנו את ${flight} בתאריך הזה בלוח של נתב״ג. תאריכים זמינים: ${iaa.dates.join(', ')}` }, { status: 404 });
-      }
-      const msg = quota
-        ? 'נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו. אם הטיסה באוויר עכשיו, נסה לחפש לפי קוד ICAO (למשל ELY315).'
-        : 'שירות הטיסות לא זמין כרגע. נסה שוב בעוד כמה דקות.';
-      return NextResponse.json({ error: msg, quota }, { status: 502 });
+  // דרך המטמון המשותף, עם מנעול: גם אם הרבה אנשים מחפשים את אותה טיסה, נשלחת ל-Aviationstack בקשה אחת
+  let payload, stale = false, quota = false;
+  try {
+    const r = await cachedFetch(`flight:${flight}`, { freshMs: (data) => freshSeconds(data) * 1000, keepSeconds: KEEP_SECONDS, source: 'aviationstack' }, async () => {
+      // 3 אותיות + מספר = קוד ICAO (למשל ISR730), 2 תווים + מספר = קוד IATA (למשל 6H730)
+      const param = /^[A-Z]{3}\d/.test(flight) ? 'flight_icao' : 'flight_iata';
+      const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&${param}=${flight}&limit=20`, { cache: 'no-store' });
+      const body = await res.json().catch(() => null);
+      if (body?.error?.code === 'usage_limit_reached') { quota = true; throw new Error('quota'); }
+      if (!res.ok || !body || body.error) throw new Error('aviationstack');
+      return (body.data || []).map(slim);
+    });
+    payload = { at: r.at, data: r.value };
+    stale = r.stale;
+  } catch {
+    // אין זמנים: אם זה קוד ICAO (ELY315), אולי המטוס באוויר עכשיו
+    if (/^[A-Z]{3}\d/.test(flight)) {
+      const lo = await liveOnly(flight, date, quota ? 'quota' : 'unavailable');
+      if (lo) return NextResponse.json(lo, { headers: cdnHeaders(15, 30) });
     }
+    if (iaa?.dates?.length) {
+      return NextResponse.json({ error: `לא מצאנו את ${flight} בתאריך הזה בלוח של נתב״ג. תאריכים זמינים: ${iaa.dates.join(', ')}` }, { status: 404, headers: cdnHeaders(60, 120) });
+    }
+    const msg = quota
+      ? 'נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו. אם הטיסה באוויר עכשיו, נסה לחפש לפי קוד ICAO (למשל ELY315).'
+      : 'שירות הטיסות לא זמין כרגע. נסה שוב בעוד כמה דקות.';
+    return NextResponse.json({ error: msg, quota }, { status: 502, headers: noStore });
   }
 
   const all = payload.data;
@@ -184,5 +174,5 @@ export async function GET(request) {
       : null,
     fetchedAt: new Date(payload.at).toISOString(),
     stale
-  });
+  }, { headers: cdnHeaders(60, 300) });
 }
