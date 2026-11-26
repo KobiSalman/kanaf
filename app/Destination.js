@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import INFO from '../data/destinations-info.json';
 import RECS from '../data/recommendations.json';
 import TravelersArt from './TravelersArt';
+import TRANSPORT from '../data/airport-transport.json';
 
 
 // כמה שעות הפרש בין היעד לישראל, עכשיו (כולל שעון קיץ)
@@ -121,6 +122,37 @@ export function DestinationSnacks({ f }) {
   );
 }
 
+// ---------- איך מגיעים מהשדה לעיר ----------
+export function AirportTransport({ f }) {
+  const code = f?.arrival?.iata;
+  const t = code && TRANSPORT.airports[code];
+  if (!t) return null;
+  const city = f.arrival.cityHe || code;
+  return (
+    <section className="card" style={{ gap: 10 }}>
+      <h2 style={{ fontSize: 17 }}>איך מגיעים מהשדה ל{city}</h2>
+      {t.transit.map((x) => (
+        <div key={x.name} className="snack" style={{ alignItems: 'flex-start' }}>
+          <span className="snack-icon" aria-hidden="true">{x.icon}</span>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <span className="strong" style={{ fontSize: 15 }}><bdi>{x.name}</bdi></span>
+            <span style={{ fontSize: 14, lineHeight: 1.5 }}>{x.text}</span>
+          </span>
+        </div>
+      ))}
+      <div className="card cream" style={{ padding: 12, gap: 6 }}>
+        <span className="strong" style={{ fontSize: 14 }}>📲 כדאי להוריד כבר בארץ</span>
+        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {t.apps.map((x) => <span key={x} className="food-chip" dir="ltr">{x}</span>)}
+        </span>
+        <span className="small" style={{ color: '#5C4A12' }}>אפליקציות נסיעה שפועלות ב{city}. להתקין ולהירשם עם כרטיס אשראי עוד לפני הטיסה, כדי שבנחיתה רק צריך להזמין.</span>
+      </div>
+      {t.tip && <span style={{ fontSize: 14, lineHeight: 1.55 }}>✦ {t.tip}</span>}
+      <span className="small muted">{TRANSPORT.note}</span>
+    </section>
+  );
+}
+
 // ---------- המלצות חמות ביעד: מתעדכנות פעם בשבוע ----------
 export function DestinationRecs({ f }) {
   const a = f.arrival;
@@ -211,7 +243,7 @@ export function DestinationTab({ f, back }) {
         <TravelersArt />
       </header>
       <div className="content flat">
-        {d ? <><DestinationSnacks f={f} /><DestinationInfo f={f} /><DestinationRecs f={f} /></> : <div className="card">אין לנו עדיין מידע על היעד הזה.</div>}
+        {d ? <><DestinationSnacks f={f} /><AirportTransport f={f} /><DestinationInfo f={f} /><DestinationRecs f={f} /></> : <div className="card">אין לנו עדיין מידע על היעד הזה.</div>}
       </div>
     </>
   );
