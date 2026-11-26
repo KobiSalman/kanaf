@@ -6,7 +6,7 @@ import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { BrandBar } from './Logo';
 import NearbyMap from './NearbyMap';
 import DestinationPicker from './DestinationPicker';
-import { DestinationInfo, DestinationRecs } from './Destination';
+import { DestinationTeaser, DestinationTab } from './Destination';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
@@ -496,7 +496,7 @@ function ShareCard({ f }) {
   );
 }
 
-function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, inbound, goStatus, goLive, loading, liveLoading }) {
+function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, goDest, inbound, goStatus, goLive, loading, liveLoading }) {
   const hasFlight = !!f;
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
@@ -654,12 +654,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
             {f.departure.iata === 'TLV' && !fs.departed && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <LeaveHomeCard f={f} now={now} />}
             {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
 
-            {f.source === 'iaa' && f.direction === 'departure' && !fs.departed && f.status !== 'cancelled' && (
-              <section className="card cream" style={{ gap: 4 }}>
-                <span className="strong">איפה השער?</span>
-                <span style={{ fontSize: 14, color: '#5C4A12', lineHeight: 1.5 }}>הלוח של רשות שדות התעופה לא מפרסם שערים. השער מופיע על המסכים בטרמינל ובאפליקציה של חברת התעופה, בדרך כלל כשעה וחצי לפני ההמראה.</span>
-              </section>
-            )}
+            <DestinationTeaser f={f} onOpen={goDest} />
 
             {f.source !== 'iaa' && !f.departure.gate && f.status === 'scheduled' && (
               <section className="card cream note">
@@ -670,9 +665,6 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
                 </div>
               </section>
             )}
-
-            {f.departure.iata === 'TLV' && <DestinationInfo f={f} />}
-            {f.departure.iata === 'TLV' && <DestinationRecs f={f} />}
 
             <ShareCard f={f} />
 
@@ -1173,11 +1165,12 @@ export default function App() {
   return (
     <main className="app">
       <BrandBar />
-      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} goDest={() => { setTab('dest'); window.scrollTo(0, 0); }} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
       {tab === 'live' && <LiveTab f={view} now={now} liveLoading={liveLoading} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}
       {tab === 'status' && <StatusTab />}
       {tab === 'board' && <BoardTab now={now} onOpen={(no, d) => { setFlightNo(no); setDate(d); setEditing(false); setTab('flights'); search(no, d); }} />}
+      {tab === 'dest' && <DestinationTab f={view} back={() => setTab('flights')} />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} inbound={inbound} now={now} />}
 
       <p className="small muted" style={{ textAlign: 'center', margin: '20px 0 0' }}><a href="/terms" style={{ color: 'inherit' }}>תנאי שימוש ופרטיות</a> · המידע ממקורות ציבוריים ואינו רשמי</p>

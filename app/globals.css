@@ -194,3 +194,8 @@ button:disabled { opacity: 0.6; cursor: default; }
 .hero h1, .hero p { text-shadow: 0 1px 8px rgba(14, 42, 71, 0.18); }
 .hero.short .cloud[style*="right"] { display: none; }
 .hero .flyer { top: 14px; }
+
+/* כרטיס "טיפים ומידע על היעד" ומסך היעד */
+.dest-teaser { background: linear-gradient(135deg, #FFE3D9 0%, #FFF3C4 100%); gap: 12px; box-shadow: 0 10px 26px rgba(255, 122, 89, 0.22); }
+.dest-hero { background: linear-gradient(160deg, #FF9A76 0%, #FFC93C 100%); color: var(--ink); }
+.dest-hero p { color: #5C2A12; }

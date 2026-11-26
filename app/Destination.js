@@ -96,3 +96,61 @@ export function DestinationRecs({ f }) {
     </section>
   );
 }
+
+// יש מידע על היעד? (טיסה מנתב״ג למדינה שיש לנו עליה נתונים)
+export function destOf(f) {
+  const a = f?.arrival;
+  if (!a || a.iata === 'TLV' || f.departure?.iata !== 'TLV') return null;
+  const c = a.countryEn ? INFO.countries[a.countryEn] : null;
+  if (!c) return null;
+  return { c, city: a.cityHe || a.iata, country: a.countryHe, tz: a.timezone };
+}
+
+function shortDiff(tz) {
+  if (!tz) return null;
+  const d = (offsetMin(tz) - offsetMin('Asia/Jerusalem')) / 60;
+  if (d === 0) return 'אותה שעה';
+  return `${Math.abs(d)} שע׳ ${d > 0 ? 'קדימה' : 'אחורה'}`;
+}
+
+// ---------- הכרטיס במסך הטיסה: מוביל למסך הטיפים ----------
+export function DestinationTeaser({ f, onOpen }) {
+  const d = destOf(f);
+  if (!d) return null;
+  const chips = [['💬', d.c.lang.split(',')[0]], ['💰', d.c.currency.name], ['🕐', shortDiff(d.tz)], ['🔌', d.c.plugs.split(' (')[0]]].filter(([, v]) => v);
+  return (
+    <button type="button" onClick={onOpen} className="card dest-teaser" style={{ border: 'none', cursor: 'pointer', textAlign: 'right', fontFamily: 'inherit', color: 'var(--ink)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span aria-hidden="true" style={{ fontSize: 34, lineHeight: 1 }}>🧳</span>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#7A3A1E' }}>רגע לפני שטסים</span>
+          <span style={{ fontSize: 20, fontWeight: 800 }}>טיפים ומידע על {d.city}</span>
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {chips.map(([e, v]) => (
+          <span key={e} style={{ background: 'rgba(255,255,255,0.75)', borderRadius: 999, padding: '5px 10px', fontSize: 13, fontWeight: 700 }}>{e} {v}</span>
+        ))}
+      </div>
+      <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--coral-ink)' }}>לכל הטיפים וההמלצות ←</span>
+    </button>
+  );
+}
+
+// ---------- מסך הטיפים: מידע על היעד והמלצות ----------
+export function DestinationTab({ f, back }) {
+  const d = destOf(f);
+  return (
+    <>
+      <header className="hero short dest-hero">
+        <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 15 }}>→ לטיסה שלי</button>
+        <span aria-hidden="true" style={{ fontSize: 54, lineHeight: 1 }}>🧳</span>
+        <h1 style={{ fontSize: 30 }}>{d ? d.city : 'היעד שלך'}</h1>
+        <p>{d?.country && d.country !== d.city ? `${d.country} · ` : ''}כל מה שכדאי לדעת לפני שטסים</p>
+      </header>
+      <div className="content flat">
+        {d ? <><DestinationInfo f={f} /><DestinationRecs f={f} /></> : <div className="card">אין לנו עדיין מידע על היעד הזה.</div>}
+      </div>
+    </>
+  );
+}
