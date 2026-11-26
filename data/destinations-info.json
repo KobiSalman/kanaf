@@ -1,0 +1,489 @@
+{
+ "note": "מידע כללי ויציב על היעדים. מטבע: שער חי מהבנק המרכזי האירופי כשזמין.",
+ "countries": {
+  "ITALY": {
+   "lang": "איטלקית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F, L",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "לא חובה. במסעדות נהוג לעגל או להשאיר 5–10%",
+   "extra": "בחשבון במסעדה מופיע לפעמים coperto, תשלום קבוע על השולחן"
+  },
+  "GEORGIA": {
+   "lang": "גאורגית, ורוסית נפוצה",
+   "currency": {
+    "code": "GEL",
+    "name": "לארי"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%, ולפעמים דמי שירות כבר כלולים בחשבון"
+  },
+  "JAPAN": {
+   "lang": "יפנית",
+   "currency": {
+    "code": "JPY",
+    "name": "ין"
+   },
+   "plugs": "A, B (מתח 100V)",
+   "emergency": "משטרה 110 · אמבולנס 119",
+   "drive": "שמאל",
+   "tip": "לא נהוג לתת טיפ, ולפעמים זה אפילו לא מנומס",
+   "extra": "הרבה מקומות עדיין מעדיפים מזומן"
+  },
+  "GREECE": {
+   "lang": "יוונית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "5–10% במסעדות"
+  },
+  "UNITED ARAB EMIRATES": {
+   "lang": "ערבית, ואנגלית נפוצה",
+   "currency": {
+    "code": "AED",
+    "name": "דירהם"
+   },
+   "plugs": "G",
+   "emergency": "משטרה 999 · אמבולנס 998",
+   "drive": "ימין",
+   "tip": "10–15%, אם דמי שירות לא כלולים"
+  },
+  "HUNGARY": {
+   "lang": "הונגרית",
+   "currency": {
+    "code": "HUF",
+    "name": "פורינט"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "10–15%. בדקו אם דמי שירות כבר כלולים בחשבון"
+  },
+  "CYPRUS": {
+   "lang": "יוונית, ואנגלית נפוצה",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "G",
+   "emergency": "112",
+   "drive": "שמאל",
+   "tip": "כ-10%"
+  },
+  "RUSSIAN FEDERATION": {
+   "lang": "רוסית",
+   "currency": {
+    "code": "RUB",
+    "name": "רובל"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%",
+   "extra": "כרטיסי אשראי ישראליים של ויזה ומאסטרקארד לא עובדים ברוסיה. צריך להגיע עם מזומן"
+  },
+  "MOLDOVA": {
+   "lang": "רומנית",
+   "currency": {
+    "code": "MDL",
+    "name": "ליאו מולדבי"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "UNITED KINGDOM": {
+   "lang": "אנגלית",
+   "currency": {
+    "code": "GBP",
+    "name": "לירה שטרלינג"
+   },
+   "plugs": "G",
+   "emergency": "999 או 112",
+   "drive": "שמאל",
+   "tip": "10–12.5%, ולעתים קרובות כבר כלול בחשבון",
+   "extra": "כמעט הכל משולם בכרטיס או בטלפון, גם בתחבורה הציבורית"
+  },
+  "THAILAND": {
+   "lang": "תאית",
+   "currency": {
+    "code": "THB",
+    "name": "באט"
+   },
+   "plugs": "A, B, C, O",
+   "emergency": "משטרת תיירים 1155 · אמבולנס 1669",
+   "drive": "שמאל",
+   "tip": "לא חובה. נהוג להשאיר את העודף או 20–50 באט"
+  },
+  "BULGARIA": {
+   "lang": "בולגרית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%",
+   "extra": "בולגריה עברה ליורו בינואר 2026"
+  },
+  "SLOVAKIA": {
+   "lang": "סלובקית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, E",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "UNITED STATES": {
+   "lang": "אנגלית",
+   "currency": {
+    "code": "USD",
+    "name": "דולר"
+   },
+   "plugs": "A, B (מתח 120V)",
+   "emergency": "911",
+   "drive": "ימין",
+   "tip": "18–20% במסעדות, ונהוג לתת טיפ גם בבר, במונית ולמלצרי שירות חדרים",
+   "extra": "המחיר על המדף לא כולל מס, הוא מתווסף בקופה"
+  },
+  "SEYCHELLES": {
+   "lang": "קריאולית, אנגלית וצרפתית",
+   "currency": {
+    "code": "SCR",
+    "name": "רופי סיישלי"
+   },
+   "plugs": "G",
+   "emergency": "999",
+   "drive": "שמאל",
+   "tip": "לרוב כלול בחשבון"
+  },
+  "AZERBAIJAN": {
+   "lang": "אזרית",
+   "currency": {
+    "code": "AZN",
+    "name": "מנאט"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "ROMANIA": {
+   "lang": "רומנית",
+   "currency": {
+    "code": "RON",
+    "name": "ליי רומני"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "ETHIOPIA": {
+   "lang": "אמהרית",
+   "currency": {
+    "code": "ETB",
+    "name": "ביר"
+   },
+   "plugs": "C, E, F, L",
+   "emergency": "משטרה 991 · אמבולנס 907",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "POLAND": {
+   "lang": "פולנית",
+   "currency": {
+    "code": "PLN",
+    "name": "זלוטי"
+   },
+   "plugs": "C, E",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "FRANCE": {
+   "lang": "צרפתית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, E",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "דמי השירות כלולים בחשבון. נהוג לעגל או להשאיר כמה יורו"
+  },
+  "CZECH REPUBLIC": {
+   "lang": "צ'כית",
+   "currency": {
+    "code": "CZK",
+    "name": "קורונה צ'כית"
+   },
+   "plugs": "C, E",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%",
+   "extra": "אל תחליפו כסף בדוכנים ברחוב. בכרטיס או בכספומט של בנק משתלם יותר"
+  },
+  "GERMANY": {
+   "lang": "גרמנית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "5–10%, או עיגול של הסכום",
+   "extra": "בחלק מהמסעדות והמאפיות עדיין משלמים רק במזומן"
+  },
+  "AUSTRIA": {
+   "lang": "גרמנית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "5–10%, או עיגול של הסכום"
+  },
+  "ALBANIA": {
+   "lang": "אלבנית",
+   "currency": {
+    "code": "ALL",
+    "name": "לק"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "SPAIN": {
+   "lang": "ספרדית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "לא חובה. 5–10% במסעדות"
+  },
+  "NETHERLANDS": {
+   "lang": "הולנדית, ואנגלית נפוצה",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "5–10%",
+   "extra": "הרבה מקומות מקבלים רק כרטיס, בלי מזומן"
+  },
+  "SWITZERLAND": {
+   "lang": "גרמנית, צרפתית ואיטלקית",
+   "currency": {
+    "code": "CHF",
+    "name": "פרנק שווייצרי"
+   },
+   "plugs": "C, J",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "דמי השירות כלולים. נהוג לעגל"
+  },
+  "ARMENIA": {
+   "lang": "ארמנית, ורוסית נפוצה",
+   "currency": {
+    "code": "AMD",
+    "name": "דראם"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%, ולפעמים כלול בחשבון"
+  },
+  "LITHUANIA": {
+   "lang": "ליטאית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "TANZANIA": {
+   "lang": "סווהילית ואנגלית",
+   "currency": {
+    "code": "TZS",
+    "name": "שילינג טנזני"
+   },
+   "plugs": "D, G",
+   "emergency": "112",
+   "drive": "שמאל",
+   "tip": "כ-10%",
+   "extra": "בזנזיבר מקבלים דולרים כמעט בכל מקום"
+  },
+  "BELARUS": {
+   "lang": "בלארוסית ורוסית",
+   "currency": {
+    "code": "BYN",
+    "name": "רובל בלארוסי"
+   },
+   "plugs": "C, F",
+   "emergency": "משטרה 102 · אמבולנס 103",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "PORTUGAL": {
+   "lang": "פורטוגזית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "5–10%"
+  },
+  "BELGIUM": {
+   "lang": "הולנדית, צרפתית וגרמנית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, E",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "דמי השירות כלולים. נהוג לעגל"
+  },
+  "SERBIA": {
+   "lang": "סרבית",
+   "currency": {
+    "code": "RSD",
+    "name": "דינר סרבי"
+   },
+   "plugs": "C, F",
+   "emergency": "משטרה 192 · אמבולנס 194",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "UZBEKISTAN": {
+   "lang": "אוזבקית, ורוסית נפוצה",
+   "currency": {
+    "code": "UZS",
+    "name": "סום"
+   },
+   "plugs": "C, F",
+   "emergency": "משטרה 102 · אמבולנס 103",
+   "drive": "ימין",
+   "tip": "5–10%"
+  },
+  "LATVIA": {
+   "lang": "לטבית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "INDIA": {
+   "lang": "הינדי ואנגלית",
+   "currency": {
+    "code": "INR",
+    "name": "רופי הודי"
+   },
+   "plugs": "C, D, M",
+   "emergency": "112",
+   "drive": "שמאל",
+   "tip": "כ-10%"
+  },
+  "VIETNAM": {
+   "lang": "וייטנאמית",
+   "currency": {
+    "code": "VND",
+    "name": "דונג"
+   },
+   "plugs": "A, C",
+   "emergency": "משטרה 113 · אמבולנס 115",
+   "drive": "ימין",
+   "tip": "לא חובה, אבל מתקבל בברכה"
+  },
+  "CROATIA": {
+   "lang": "קרואטית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "MONTENEGRO": {
+   "lang": "מונטנגרית",
+   "currency": {
+    "code": "EUR",
+    "name": "יורו"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "כ-10%"
+  },
+  "EGYPT": {
+   "lang": "ערבית",
+   "currency": {
+    "code": "EGP",
+    "name": "לירה מצרית"
+   },
+   "plugs": "C, F",
+   "emergency": "משטרה 122 · אמבולנס 123",
+   "drive": "ימין",
+   "tip": "נהוג לתת טיפ קטן כמעט לכל שירות"
+  },
+  "TURKEY": {
+   "lang": "טורקית",
+   "currency": {
+    "code": "TRY",
+    "name": "לירה טורקית"
+   },
+   "plugs": "C, F",
+   "emergency": "112",
+   "drive": "ימין",
+   "tip": "5–10%"
+  },
+  "CANADA": {
+   "lang": "אנגלית וצרפתית",
+   "currency": {
+    "code": "CAD",
+    "name": "דולר קנדי"
+   },
+   "plugs": "A, B (מתח 120V)",
+   "emergency": "911",
+   "drive": "ימין",
+   "tip": "15–20% במסעדות",
+   "extra": "המחיר על המדף לא כולל מס, הוא מתווסף בקופה"
+  }
+ }
+}

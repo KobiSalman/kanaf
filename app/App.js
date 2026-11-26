@@ -6,6 +6,7 @@ import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { BrandBar } from './Logo';
 import NearbyMap from './NearbyMap';
 import DestinationPicker from './DestinationPicker';
+import { DestinationInfo, DestinationRecs } from './Destination';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
@@ -669,6 +670,9 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
                 </div>
               </section>
             )}
+
+            {f.departure.iata === 'TLV' && <DestinationInfo f={f} />}
+            {f.departure.iata === 'TLV' && <DestinationRecs f={f} />}
 
             <ShareCard f={f} />
 
