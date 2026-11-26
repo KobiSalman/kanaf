@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { airlineOf, compass } from '../../../lib/aviation';
 import { adsbFetch } from '../../../lib/adsb';
 import { cachedFetch, cdnHeaders, noStore, RateLimited } from '../../../lib/cache';
+import { fullBoard, parseFlight } from '../../../lib/iaa';
+import { localToInstant } from '../../../lib/time';
 
 // "מה טס מעליי": כל המטוסים ברדיוס של כ-46 ק״מ, בזמן אמת מ-adsb.lol, דרך המטמון המשותף.
 const RADIUS_NM = 25;
@@ -19,7 +21,9 @@ export async function GET(request) {
   try {
     r = await cachedFetch(`nearby:${rl},${ro}`, { freshMs: 15000, keepSeconds: 300, source: 'adsb' }, async () => {
       const data = await adsbFetch(`/v2/point/${rl}/${ro}/${RADIUS_NM}`);
-      return buildBody(data);
+      const body = buildBody(data);
+      await addRoutes(body.planes);
+      return body;
     });
   } catch (e) {
     const busy = e instanceof RateLimited;
@@ -47,6 +51,9 @@ function buildBody(data) {
         speedKmh: Math.round((a.gs || 0) * 1.852),
         verticalFpm: a.baro_rate ?? a.geom_rate ?? 0,
         distKm: Math.round((a.dst || 0) * 1.852 * 10) / 10,
+        lat: Math.round(a.lat * 1000) / 1000,
+        lon: Math.round(a.lon * 1000) / 1000,
+        track: a.track != null ? Math.round(a.track) : null,
         fromYou: a.dir != null ? compass(a.dir) : null,
         heading: a.track != null ? compass(a.track) : null
       };
@@ -55,4 +62,26 @@ function buildBody(data) {
     .slice(0, 25);
 
   return { radiusKm: Math.round(RADIUS_NM * 1.852), planes, at: new Date().toISOString() };
+}
+
+// מאיפה לאן: מחפשים את הטיסה בלוח של נתב״ג לפי אות הקריאה (ELY571 = LY571).
+// עובד לטיסות שממריאות מנתב״ג או נוחתות בו. לטיסות אחרות, או לאותות קריאה עם אותיות (WZZ12AB), אין לנו מסלול.
+async function addRoutes(planes) {
+  let rows;
+  try { rows = (await fullBoard()).rows; } catch { return; }
+  const now = Date.now();
+  for (const p of planes) {
+    const f = p.callsign && parseFlight(p.callsign);
+    if (!f || f.suffix) continue;
+    let best = null, bestDiff = Infinity;
+    for (const r of rows) {
+      if (r.op !== f.airline || r.fn !== f.number) continue;
+      const t = localToInstant(r.ptol, 'Asia/Jerusalem');
+      const diff = t ? Math.abs(t - now) : Infinity;
+      if (diff < bestDiff && diff < 4 * 3600e3) { best = r; bestDiff = diff; }
+    }
+    if (!best) continue;
+    const tlv = { code: 'TLV', city: 'תל אביב' }, other = { code: best.loc, city: best.city };
+    p.route = best.dir === 'D' ? { from: tlv, to: other } : { from: other, to: tlv };
+  }
 }

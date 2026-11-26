@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
 import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { BrandBar } from './Logo';
+import NearbyMap from './NearbyMap';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
@@ -238,6 +239,7 @@ function NearbyTab({ now }) {
         {where && !data && !error && <section className="card"><PlaneLoader text="מחפש מטוסים סביבך…" /></section>}
         {error && <div className="error" role="alert">{error}</div>}
         {data && planes.length === 0 && <div className="card">אין כרגע מטוסים משדרים באזור.</div>}
+        {data && where && <NearbyMap center={{ lat: Math.round(where.lat * 50) / 50, lon: Math.round(where.lon * 50) / 50 }} radiusKm={data.radiusKm} planes={planes} />}
 
         {flying.map((p) => (
           <section key={p.id} className="card" style={{ gap: 6 }}>
@@ -245,6 +247,7 @@ function NearbyTab({ now }) {
               <span style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>{iataFromCallsign(p.callsign) && <AirlineLogo iata={iataFromCallsign(p.callsign)} name={p.airline} size={26} />}{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> · {p.airline}</span> : null}</span>
               <span className="badge good">{p.distKm} ק״מ{p.fromYou ? ` · ${p.fromYou}` : ''}</span>
             </div>
+            {p.route && <span className="strong" style={{ fontSize: 16 }}>{p.route.from.city} ← {p.route.to.city} <bdi dir="ltr" className="muted" style={{ fontSize: 13, fontWeight: 500 }}>{p.route.from.code} → {p.route.to.code}</bdi></span>}
             <span style={{ fontSize: 14 }}>{p.type ? (AIRCRAFT[p.type] || p.type) : 'דגם לא ידוע'}{p.registration && p.callsign ? ` · ${p.registration}` : ''}</span>
             <span className="muted" style={{ fontSize: 13 }}>
               {p.altFt.toLocaleString('en-US')} רגל · {p.speedKmh} קמ״ש
@@ -259,7 +262,7 @@ function NearbyTab({ now }) {
             <h2>על הקרקע ({ground.length})</h2>
             {ground.map((p) => (
               <div key={p.id} className="row">
-                <span>{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? ` · ${p.airline}` : ''}</span>
+                <span>{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? ` · ${p.airline}` : ''}{p.route ? ` · ${p.route.from.city} ← ${p.route.to.city}` : ''}</span>
                 <span className="muted">{p.type ? (AIRCRAFT[p.type] || p.type) : ''}</span>
               </div>
             ))}
