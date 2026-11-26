@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { lookupLive, estimatePosition, CALLSIGN_RE } from '../../../lib/adsb';
+import { AIRPORTS } from '../../../lib/airports';
+import { distanceKm } from '../../../lib/aviation';
 import { cachedFetch, cdnHeaders, noStore, RateLimited } from '../../../lib/cache';
 
 // מיקום חי בזמן אמת מרשת ה-ADS-B הקהילתית adsb.lol, דרך המטמון המשותף:
@@ -22,15 +24,22 @@ export async function GET(request) {
 
   try {
     const r = await cachedFetch(key, {
-      // באוויר: כל 30 שניות. על הקרקע: כל דקה. לא נמצא (מחוץ לקליטה או לפני המראה): כל 2 דקות
-      freshMs: (v) => (v?.found ? (v.live?.isGround ? 60000 : 30000) : 120000), keepSeconds: 900, source: 'adsb' },
+      // באוויר: כל 3 דקות, וכל דקה כשהמטוס כבר קרוב ליעד (פחות מ-200 ק״מ) או על הקרקע.
+      // לא נמצא (מחוץ לקליטה או לפני המראה): כל 3 דקות
+      freshMs: (v) => {
+        if (!v?.found) return 180000;
+        if (v.live?.isGround) return 60000;
+        const dest = AIRPORTS[to];
+        const near = dest && distanceKm(v.live.latitude, v.live.longitude, dest[0], dest[1]) < 200;
+        return near ? 60000 : 180000;
+      }, keepSeconds: 900, source: 'adsb' },
       () => lookupLive({ callsign, reg, alt, cs, from, to, direction, etaMs, depMs }));
     const body = { ...r.value, stale: r.stale };
     if (!body.found) {
       const est = estimatePosition({ from, to, depMs, etaMs, direction });
       if (est) body.estimate = est;
     }
-    return NextResponse.json(body, { headers: cdnHeaders(25, 30) });
+    return NextResponse.json(body, { headers: cdnHeaders(50, 60) });
   } catch (e) {
     const busy = e instanceof RateLimited;
     return NextResponse.json(

@@ -874,7 +874,7 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
         </section>
 
         <button type="button" className="btn-sun" onClick={onRefresh} disabled={loading} style={{ flex: 'none' }}>{loading ? 'מרענן…' : 'רענן נתונים'}</button>
-        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל 30 שניות.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}
+        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל כמה דקות, ובסוף הטיסה כל דקה.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}
           {f.broadcastCallsign && f.callsign && f.broadcastCallsign !== f.callsign ? ` המטוס משדר כ-${f.broadcastCallsign}${f.matchedByRoute ? ', וזיהינו אותו לפי החברה וכיוון הטיסה' : ''}.` : ''}</p>
       </div>
     </>
@@ -1144,7 +1144,7 @@ export default function App() {
     } catch {}
     if (!stopped()) setLiveLoading(false);
     return ok;
-  }, 30000, [callsign, flightReg]);
+  }, 60000, [callsign, flightReg]);
 
   // "המטוס הגיע?": בדיקה כל דקה, רק לפני ההמראה
   const [inbound, setInbound] = useState(null);
