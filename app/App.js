@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
+import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
@@ -418,6 +419,7 @@ function BoardTab({ now, onOpen }) {
                 background: dir === k ? 'var(--ink)' : '#fff', color: dir === k ? '#fff' : 'var(--ink)' }}>{label}</button>
           ))}
         </div>
+        {dir === 'D' && !query && <CrowdForecast now={now} />}
         <div className="field">
           <label htmlFor="boardSearch">חיפוש לפי עיר, מדינה, חברה או מספר טיסה</label>
           <input id="boardSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="לדוגמה: אתונה, וויז, LY315" />
@@ -641,6 +643,9 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
                 </>
               }
             />
+
+            {f.departure.iata === 'TLV' && !fs.departed && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <LeaveHomeCard f={f} now={now} />}
+            {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
 
             {f.source === 'iaa' && f.direction === 'departure' && !fs.departed && f.status !== 'cancelled' && (
               <section className="card cream" style={{ gap: 4 }}>
