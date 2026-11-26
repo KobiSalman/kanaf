@@ -87,6 +87,40 @@ export function DestinationInfo({ f }) {
   );
 }
 
+// ---------- חטיפי מידע: בירה, מה לטעום, והידעת? ----------
+export function DestinationSnacks({ f }) {
+  const d = destOf(f);
+  if (!d || !d.c.capital) return null;
+  return (
+    <section className="card snacks" style={{ gap: 12 }}>
+      <h2 style={{ fontSize: 17 }}>חטיפי מידע על {d.country || d.city}</h2>
+      <div className="snack">
+        <span className="snack-icon" aria-hidden="true">🏛️</span>
+        <span style={{ display: 'flex', flexDirection: 'column' }}>
+          <span className="small muted">עיר הבירה</span>
+          <span className="strong" style={{ fontSize: 16 }}>{d.c.capital}</span>
+        </span>
+      </div>
+      <div className="snack" style={{ alignItems: 'flex-start' }}>
+        <span className="snack-icon" aria-hidden="true">🍽️</span>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span className="small muted">מה חייבים לטעום</span>
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {d.c.foods.map((x) => <span key={x} className="food-chip">{x}</span>)}
+          </span>
+        </span>
+      </div>
+      <div className="snack" style={{ alignItems: 'flex-start' }}>
+        <span className="snack-icon" aria-hidden="true">💡</span>
+        <span style={{ display: 'flex', flexDirection: 'column' }}>
+          <span className="small muted">הידעת?</span>
+          <span style={{ fontSize: 15, lineHeight: 1.5 }}>{d.c.fact}</span>
+        </span>
+      </div>
+    </section>
+  );
+}
+
 // ---------- המלצות חמות ביעד: מתעדכנות פעם בשבוע ----------
 export function DestinationRecs({ f }) {
   const a = f.arrival;
@@ -177,7 +211,7 @@ export function DestinationTab({ f, back }) {
         <TravelersArt />
       </header>
       <div className="content flat">
-        {d ? <><DestinationInfo f={f} /><DestinationRecs f={f} /></> : <div className="card">אין לנו עדיין מידע על היעד הזה.</div>}
+        {d ? <><DestinationSnacks f={f} /><DestinationInfo f={f} /><DestinationRecs f={f} /></> : <div className="card">אין לנו עדיין מידע על היעד הזה.</div>}
       </div>
     </>
   );
