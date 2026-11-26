@@ -220,30 +220,6 @@ export function DestinationTeaser({ f, onOpen }) {
   );
 }
 
-// דגל מתנופף: הדגל נחתך לפסים אנכיים דקים, וכל פס זז למעלה ולמטה באיחור קטן אחרי הקודם, כמו גל ברוח
-const SLICES = 30, FW = 120, FH = 90; // הדגלים ביחס 4:3, ולכן גם הבד
-function WavingFlag({ iso }) {
-  const url = `/flags/${iso}.svg`;
-  const w = FW / SLICES;
-  return (
-    <div className="wflag" aria-hidden="true">
-      <span className="wflag-pole" />
-      <div className="wflag-cloth" style={{ width: FW, height: FH }}>
-        {Array.from({ length: SLICES }, (_, i) => (
-          <span key={i} className="wflag-slice" style={{
-            left: i * w, width: w + 0.6,
-            backgroundImage: `url(${url})`,
-            backgroundSize: `${FW}px ${FH}px`,
-            backgroundPosition: `${-i * w}px 0`,
-            animationDelay: `${(-i * 0.07).toFixed(2)}s`,
-            '--amp': `${(0.8 + (i / SLICES) * 3.5).toFixed(2)}px`
-          }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ---------- מסך הטיפים: מידע על היעד והמלצות ----------
 export function DestinationTab({ f, back }) {
   const d = destOf(f);
@@ -251,7 +227,12 @@ export function DestinationTab({ f, back }) {
     <>
       <header className="dest-hero2">
         <div className="dest-top">
-          {d?.c.iso && <WavingFlag iso={d.c.iso} />}
+          {d?.c.iso && (
+            <div className="dest-flag2" aria-hidden="true">
+              <img src={`/flags/${d.c.iso}.svg`} alt="" width="120" height="90" />
+              <span className="dest-flag-shine" />
+            </div>
+          )}
           <div className="dest-text">
             <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 14, background: 'var(--ground)' }}>→ לטיסה שלי</button>
             <h1>{d ? d.city : 'היעד שלך'}</h1>
