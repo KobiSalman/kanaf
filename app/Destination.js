@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import INFO from '../data/destinations-info.json';
 import RECS from '../data/recommendations.json';
+import TravelersArt from './TravelersArt';
 
 
 // כמה שעות הפרש בין היעד לישראל, עכשיו (כולל שעון קיץ)
@@ -173,13 +174,17 @@ export function DestinationTab({ f, back }) {
   const d = destOf(f);
   return (
     <>
-      <header className="hero short dest-hero" style={d?.c.flag ? { background: flagBackground(d.c.flag) } : undefined}>
-        <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 15 }}>→ לטיסה שלי</button>
-        <div className="dest-title">
-          <span aria-hidden="true" style={{ fontSize: 40, lineHeight: 1 }}>🧳</span>
-          <h1 style={{ fontSize: 30 }}>{d ? d.city : 'היעד שלך'}</h1>
-          <p>{d?.country && d.country !== d.city ? `${d.country} · ` : ''}כל מה שכדאי לדעת לפני שטסים</p>
+      <header className="dest-hero2">
+        <div className="dest-top">
+          {d?.c.flag && <div className="dest-flag" aria-hidden="true" style={{ background: flagBackground(d.c.flag) }}><span className="dest-flag-shine" /></div>}
+          <div className="dest-text">
+            <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 14, background: 'var(--ground)' }}>→ לטיסה שלי</button>
+            <h1>{d ? d.city : 'היעד שלך'}</h1>
+            {d?.country && d.country !== d.city && <span className="dest-country">{d.country}</span>}
+            <span className="dest-sub">כל מה שכדאי לדעת לפני שטסים ✈️</span>
+          </div>
         </div>
+        <TravelersArt />
       </header>
       <div className="content flat">
         {d ? <><DestinationInfo f={f} /><DestinationRecs f={f} /></> : <div className="card">אין לנו עדיין מידע על היעד הזה.</div>}

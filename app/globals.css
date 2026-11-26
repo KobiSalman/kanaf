@@ -203,3 +203,19 @@ button:disabled { opacity: 0.6; cursor: default; }
 .dest-title { align-self: stretch; display: flex; flex-direction: column; gap: 6px; background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(6px); border-radius: 22px; padding: 14px 16px; box-shadow: 0 8px 24px rgba(14, 42, 71, 0.18); }
 .dest-title h1, .dest-title p { text-shadow: none; color: var(--ink); }
 .dest-title p { color: var(--muted); }
+
+/* כותרת מסך היעד: דגל באלכסון בצד אחד, טקסט בצד השני, ואיור של מטיילים בטרמינל */
+.dest-hero2 { margin: 0 10px; background: #fff; border-radius: 28px; overflow: hidden; box-shadow: 0 12px 30px rgba(14, 42, 71, 0.12); }
+.dest-top { position: relative; min-height: 150px; }
+.dest-flag { position: absolute; left: 0; top: 0; bottom: 0; width: 46%; clip-path: polygon(0 0, 100% 0, 64% 100%, 0 100%); }
+.dest-flag-shine { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(255,255,255,0) 15%, rgba(255,255,255,0.28) 32%, rgba(255,255,255,0) 48%, rgba(0,0,0,0.10) 68%, rgba(0,0,0,0) 86%); }
+.dest-text { position: relative; width: 62%; padding: 16px 18px 14px 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.dest-text h1 { margin: 8px 0 0; font-size: 34px; font-weight: 800; line-height: 1.05; }
+.dest-country { font-size: 16px; font-weight: 700; color: var(--muted); }
+.dest-sub { font-size: 14px; color: var(--muted); }
+@keyframes art-walk { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes art-plane { 0%, 100% { transform: translate(110px, 40px) rotate(-18deg); } 50% { transform: translate(116px, 37px) rotate(-18deg); } }
+.art-walk { animation: art-walk 0.9s ease-in-out infinite; }
+.art-walk.slow { animation-duration: 1.05s; }
+.art-plane { animation: art-plane 4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .art-walk, .art-plane { animation: none; } }
