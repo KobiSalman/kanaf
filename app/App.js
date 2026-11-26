@@ -500,7 +500,8 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
   const stTone = hasFlight && f.statusEn ? (/CANCEL/.test(f.statusEn) ? 'bad' : f.statusEn === 'DELAYED' ? 'warn' : 'good') : st?.tone;
-  const approx = (side) => (side.estimatedByUs && !side.actual ? 'כ-' : '');
+  // בלי "כ-" לפני השעות: התווית ליד השעה כבר אומרת שזו הערכה
+  const approx = () => '';
   const t = hasFlight ? times(f) : null;
   const left = t?.arrAt ? Math.ceil((t.arrAt - now) / 60000) : null;
   const toDep = t?.depAt ? Math.ceil((t.depAt - now) / 60000) : null;
@@ -625,7 +626,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
                     <div className="tile"><span className="label">עלייה*</span><span className="value">{(!f.departure.estimatedByUs && boarding) || '—'}</span></div>
                   </div>
                   {f.departure.checkin && <span className="strong" style={{ fontSize: 14, marginTop: -6 }}>דלפקי צ׳ק-אין: {f.departure.checkin}{f.departure.checkinZone ? ` · אזור ${f.departure.checkinZone}` : ''}</span>}
-                  <span className="small muted" style={{ marginTop: -8 }}>* שעת עלייה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.{(f.departure.estimatedByUs || f.arrival.estimatedByUs) ? ' "כ-" = הערכה שלנו לפי המרחק.' : ''}</span>
+                  <span className="small muted" style={{ marginTop: -8 }}>* שעת עלייה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.{(f.departure.estimatedByUs || f.arrival.estimatedByUs) ? ' שעת הנחיתה ביעד היא הערכה שלנו לפי המרחק.' : ''}</span>
                 </>
               }
               back={
