@@ -488,6 +488,23 @@ function ShareCard({ f }) {
   );
 }
 
+// חותמת אדומה על כרטיס הטיסה: עיכוב של 15 דקות ומעלה, או טיסה שבוטלה
+function delayStamp(f) {
+  if (f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '')) return { title: 'בוטלה', sub: 'בדקו מול חברת התעופה' };
+  const arr = f.direction === 'arrival';
+  const side = arr ? f.arrival : f.departure;
+  const dl = side.delay || (arr ? null : f.arrival.delay) || null;
+  const flagged = f.statusEn === 'DELAYED';
+  if (!(dl >= 15) && !flagged) return null;
+  const done = arr ? !!f.arrival.actual : !!f.departure.actual;
+  const t = hhmm(side.actual || side.estimated);
+  return {
+    title: 'עיכוב',
+    line: dl >= 15 ? minutesLabel(dl) : null,
+    sub: t ? `${done ? (arr ? 'נחתה' : 'המריאה') : arr ? 'נחיתה' : 'המראה'} בשעה ${t}` : null
+  };
+}
+
 function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, goDest, inbound, goStatus, goLive, loading, liveLoading }) {
   const hasFlight = !!f;
   const st = hasFlight ? statusOf(f) : null;
@@ -583,6 +600,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, go
             )}
             <AirlineAlert f={f} goStatus={goStatus} />
             <BoardingPass
+              stamp={delayStamp(f)}
               seed={`${f.flight}${f.date}`}
               label={`כרטיס טיסה ${f.flight} מ-${f.departure.iata} ל-${f.arrival.iata}`}
               front={

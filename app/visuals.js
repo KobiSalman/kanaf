@@ -94,7 +94,7 @@ function Barcode({ seed }) {
   return <svg width="100%" height="34" viewBox={`0 0 ${x} 34`} preserveAspectRatio="none" aria-hidden="true">{bars}</svg>;
 }
 
-export function BoardingPass({ front, back, seed, label }) {
+export function BoardingPass({ front, back, seed, label, stamp }) {
   const [flipped, setFlipped] = useState(false);
   return (
     <button
@@ -107,6 +107,13 @@ export function BoardingPass({ front, back, seed, label }) {
       <div className="bp-inner">
         <div className="bp-face">
           {front}
+          {stamp && (
+            <div className={`bp-stamp ${stamp.tone || ''}`} role="status">
+              <span className="bp-stamp-title">{stamp.title}</span>
+              {stamp.line && <span className="bp-stamp-line">{stamp.line}</span>}
+              {stamp.sub && <span className="bp-stamp-sub">{stamp.sub}</span>}
+            </div>
+          )}
           <div className="bp-tear" aria-hidden="true" />
           <div className="bp-bottom">
             <Barcode seed={seed} />
