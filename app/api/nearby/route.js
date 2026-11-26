@@ -19,7 +19,7 @@ export async function GET(request) {
   const rl = Math.round(lat * 50) / 50, ro = Math.round(lon * 50) / 50;
   let r;
   try {
-    r = await cachedFetch(`nearby:${rl},${ro}`, { freshMs: 15000, keepSeconds: 300, source: 'adsb' }, async () => {
+    r = await cachedFetch(`nearby:${rl},${ro}`, { freshMs: 30000, keepSeconds: 300, source: 'adsb' }, async () => {
       const data = await adsbFetch(`/v2/point/${rl}/${ro}/${RADIUS_NM}`);
       const body = buildBody(data);
       await addRoutes(body.planes);
@@ -30,7 +30,7 @@ export async function GET(request) {
     return NextResponse.json({ error: busy ? 'שירות המיקום החי עמוס כרגע. ננסה שוב בעוד רגע.' : 'לא הצלחנו לקבל את המטוסים באזור. נסה שוב בעוד רגע.', busy },
       { status: busy ? 503 : 502, headers: noStore });
   }
-  return NextResponse.json({ ...r.value, stale: r.stale }, { headers: cdnHeaders(15, 30) });
+  return NextResponse.json({ ...r.value, stale: r.stale }, { headers: cdnHeaders(30, 30) });
 }
 
 function buildBody(data) {

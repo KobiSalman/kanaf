@@ -21,14 +21,16 @@ export async function GET(request) {
   const key = `live:${[callsign, reg, alt, cs.join(','), from, to].join('|')}`;
 
   try {
-    const r = await cachedFetch(key, { freshMs: 10000, keepSeconds: 900, source: 'adsb' },
+    const r = await cachedFetch(key, {
+      // באוויר: כל 30 שניות. על הקרקע: כל דקה. לא נמצא (מחוץ לקליטה או לפני המראה): כל 2 דקות
+      freshMs: (v) => (v?.found ? (v.live?.isGround ? 60000 : 30000) : 120000), keepSeconds: 900, source: 'adsb' },
       () => lookupLive({ callsign, reg, alt, cs, from, to, direction, etaMs, depMs }));
     const body = { ...r.value, stale: r.stale };
     if (!body.found) {
       const est = estimatePosition({ from, to, depMs, etaMs, direction });
       if (est) body.estimate = est;
     }
-    return NextResponse.json(body, { headers: cdnHeaders(10, 20) });
+    return NextResponse.json(body, { headers: cdnHeaders(25, 30) });
   } catch (e) {
     const busy = e instanceof RateLimited;
     return NextResponse.json(

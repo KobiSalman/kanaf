@@ -17,7 +17,7 @@ export async function GET(request) {
 
   let r;
   try {
-    r = await cachedFetch(`inbound:${reg}|${from}|${callsign}`, { freshMs: 60000, keepSeconds: 3600, source: 'adsb' }, async () => {
+    r = await cachedFetch(`inbound:${reg}|${from}|${callsign}`, { freshMs: 180000, keepSeconds: 3600, source: 'adsb' }, async () => {
       const data = await adsbFetch(`/v2/registration/${encodeURIComponent(reg)}`);
       return assess(data, from, callsign);
     });

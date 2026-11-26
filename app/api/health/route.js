@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sharedCacheEnabled, cacheGet, cacheSet } from '../../../lib/cache';
+import { sharedCacheEnabled, cacheGet, cacheSet, usageToday } from '../../../lib/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     aviationstackKey: Boolean(process.env.AVIATIONSTACK_KEY),
+    adsbKey: Boolean(process.env.ADSB_API_KEY),
+    adsbRequestsToday: await usageToday('adsb'),
     sharedCacheConnected: sharedCacheEnabled,
     sharedCacheWorks,
     message: sharedCacheWorks

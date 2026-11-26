@@ -212,7 +212,7 @@ function NearbyTab({ now }) {
       setData(body); setError('');
       return true;
     } catch { if (!stopped() && !data) setError('אין חיבור לאינטרנט'); return false; }
-  }, 20000, [where]);
+  }, 30000, [where]);
 
   const planes = data?.planes || [];
   const flying = planes.filter((p) => !p.onGround);
@@ -271,7 +271,7 @@ function NearbyTab({ now }) {
           </section>
         )}
 
-        {data && <p className="small muted" style={{ margin: 0 }}>נתונים בזמן אמת מרשת ADS-B (adsb.lol), מתעדכנים כל 20 שניות · {agoLabel(now - Date.parse(data.at))}. מטוסים צבאיים או פרטיים לא תמיד משדרים זיהוי.</p>}
+        {data && <p className="small muted" style={{ margin: 0 }}>נתונים בזמן אמת מרשת ADS-B (adsb.lol), מתעדכנים כל 30 שניות · {agoLabel(now - Date.parse(data.at))}. מטוסים צבאיים או פרטיים לא תמיד משדרים זיהוי.</p>}
         <p className="small muted" style={{ margin: 0 }}>פרטיות: המיקום שלך מעוגל לכ-2 ק״מ עוד בטלפון, נשלח רק כדי למצוא מטוסים סביבך, ולא נשמר אצלנו עם שום פרט מזהה.</p>
       </div>
     </>
@@ -1146,6 +1146,9 @@ export default function App() {
   }, [callsign, flightReg]);
   usePolling(async (stopped) => {
     if (!callsign) return true;
+    // לפני ההמראה המטוס בדרך כלל לא משדר: לא שואלים עד כ-45 דקות לפני, כדי לחסוך בקשות
+    const depAt = flight ? localToInstant(flight.departure.actual || flight.departure.estimated || flight.departure.scheduled, flight.departure.timezone) : null;
+    if (depAt && !flight.departure.actual && depAt - Date.now() > 45 * 60e3) { if (!stopped()) setLiveLoading(false); return true; }
     let ok = false;
     try {
       const q = new URLSearchParams({ callsign, reg: flightReg || '', alt: altCallsign.current || '' });
@@ -1170,7 +1173,7 @@ export default function App() {
     } catch {}
     if (!stopped()) setLiveLoading(false);
     return ok;
-  }, 15000, [callsign, flightReg]);
+  }, 30000, [callsign, flightReg]);
 
   // "המטוס הגיע?": בדיקה כל דקה, רק לפני ההמראה
   const [inbound, setInbound] = useState(null);
@@ -1190,7 +1193,7 @@ export default function App() {
       } catch {}
     };
     load();
-    const id = setInterval(load, 60000);
+    const id = setInterval(load, 180000);
     return () => { stop = true; clearInterval(id); };
   }, [reg, flight?.flight, flight?.date, departed]);
 
