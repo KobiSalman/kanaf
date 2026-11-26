@@ -667,17 +667,22 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, in
 
             <ShareCard f={f} />
 
-            {(
-              <button type="button" className="card peach" onClick={goAircraft} style={{ border: 'none', textAlign: 'right', cursor: 'pointer', flexDirection: 'row', alignItems: 'center', gap: 14, color: 'inherit' }}>
+            {(() => {
+              // רק כשהמטוס זוהה הכרטיס לחיץ ומוביל למסך המטוס
+              const known = !!f.aircraft?.type;
+              const Tag = known ? 'button' : 'section';
+              return (
+              <Tag {...(known ? { type: 'button', onClick: goAircraft } : {})} className="card peach" style={{ border: 'none', textAlign: 'right', cursor: known ? 'pointer' : 'default', flexDirection: 'row', alignItems: 'center', gap: 14, color: 'inherit' }}>
                 <div className="plane-dot" style={{ width: 54, height: 54, borderRadius: 18 }}><span style={{ color: '#fff', display: 'flex' }}><TopIcon /></span></div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
                   <span style={{ fontSize: 13, color: '#6B3A2A' }}>{f.aircraft?.type ? 'תטוס ב-' : 'המטוס של הטיסה'}</span>
                   <span style={{ fontSize: 17, fontWeight: 800 }}>{f.aircraft?.type ? `${AIRCRAFT[f.aircraft.type] || f.aircraft.type}${f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}` : (fs.departed ? 'לא הצלחנו לזהות את המטוס' : 'נזהה את המטוס בקרוב')}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)' }}>{f.aircraft?.type ? 'הכר את המטוס שלך ←' : fs.departed ? 'המטוס לא משדר זיהוי שאנחנו קולטים כרגע' : 'בדרך כלל כחצי שעה עד שעה לפני ההמראה, כשהמטוס מתחיל לשדר. אז יופיעו דגם, תמונה ותרשים מושבים'}</span>
+                  <span style={{ fontSize: 14, fontWeight: f.aircraft?.type ? 700 : 400, color: f.aircraft?.type ? 'var(--coral-ink)' : '#6B3A2A', lineHeight: 1.5 }}>{f.aircraft?.type ? 'הכר את המטוס שלך ←' : fs.departed ? 'המטוס לא משדר זיהוי שאנחנו קולטים כרגע' : 'בדרך כלל כחצי שעה עד שעה לפני ההמראה, כשהמטוס מתחיל לשדר. אז יופיעו דגם, תמונה ותרשים מושבים'}</span>
                   {!f.aircraft?.type && liveLoading && <PlaneLoader small text="מחפש את המטוס…" />}
                 </div>
-              </button>
-            )}
+              </Tag>
+              );
+            })()}
 
             {!fs.departed && f.aircraft?.registration && (inbound
               ? <InboundCard f={f} inbound={inbound} now={now} />
