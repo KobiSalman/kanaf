@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { localToInstant, minutesLabel } from '../lib/time';
+import { localToInstant } from '../lib/time';
 
 const HOUR = 3600e3, MIN = 60e3;
 
@@ -63,160 +63,63 @@ export function levelOf(n) {
   return { key: 'low', text: 'רגוע', color: '#0B5A33', bg: '#C8F5DC' };
 }
 
-// זמן הנסיעה לשדה: נשמר בטלפון, כדי שלא צריך לבחור בכל פעם
-const DRIVES = [15, 30, 45, 60, 90];
-export function useDrive() {
-  const [drive, setDrive] = useState(45);
-  useEffect(() => { try { const v = Number(localStorage.getItem('kanaf:drive')); if (DRIVES.includes(v)) setDrive(v); } catch {} }, []);
-  const save = (v) => { setDrive(v); try { localStorage.setItem('kanaf:drive', String(v)); } catch {} };
-  return [drive, save];
+// טיימר שמתקתק כל שנייה עד שעת היעד
+function useTick() {
+  const [t, setT] = useState(Date.now());
+  useEffect(() => { const id = setInterval(() => setT(Date.now()), 1000); return () => clearInterval(id); }, []);
+  return t;
 }
 
-function DrivePicker({ drive, setDrive, label }) {
+function TimerCard({ title, label, target, doneText }) {
+  const now = useTick();
+  const left = Math.max(0, Math.floor((target - now) / 1000));
+  const parts = [Math.floor(left / 3600), Math.floor((left % 3600) / 60), left % 60];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <span className="small muted">{label}</span>
-      <div role="radiogroup" aria-label={label} style={{ display: 'grid', gridTemplateColumns: `repeat(${DRIVES.length}, minmax(0, 1fr))`, gap: 6 }}>
-        {DRIVES.map((v) => (
-          <button key={v} type="button" role="radio" aria-checked={drive === v} onClick={() => setDrive(v)}
-            style={{ height: 38, borderRadius: 12, border: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-              background: drive === v ? 'var(--ink)' : '#EEF4FA', color: drive === v ? '#fff' : 'var(--ink)' }}>
-            {v < 60 ? `${v} דק׳` : v === 60 ? 'שעה' : 'שעה וחצי'}
-          </button>
-        ))}
-      </div>
-    </div>
+    <section className="card big" style={{ gap: 12, alignItems: 'center', textAlign: 'center' }}>
+      <h2 style={{ fontSize: 18 }}>{title}</h2>
+      {left > 0 ? (
+        <div dir="ltr" role="timer" aria-label={`${label} ${clockIL(target)}`} style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          {parts.map((v, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <span style={{ minWidth: 72, padding: '10px 6px', borderRadius: 16, background: 'var(--ink)', color: '#fff', fontSize: 38, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                {String(v).padStart(2, '0')}
+              </span>
+              <span className="small muted">{['שעות', 'דקות', 'שניות'][i]}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--coral-ink)' }}>{doneText}</span>
+      )}
+      <span style={{ fontSize: 17 }}>{label} <b>{clockIL(target)}</b></span>
+    </section>
   );
 }
 
-// פס עומס קטן: כמה שעות סביב השעה שלך, עם סימון השעה שלך
-function LoadStrip({ crowd, center, loadAt, caption }) {
-  if (!crowd) return null;
-  const base = Math.floor(center / HOUR) * HOUR;
-  const cols = [-2, -1, 0, 1, 2].map((h) => {
-    const t = base + h * HOUR;
-    const n = loadAt(crowd, t + HOUR / 2);
-    return { t, n, lv: levelOf(n), mine: h === 0 };
-  }).filter((c) => c.n != null);
-  if (!cols.length) return null;
-  const max = Math.max(12, ...cols.map((c) => c.n));
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <span className="small muted">{caption}</span>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))`, gap: 6, alignItems: 'end', height: 70 }} aria-hidden="true">
-        {cols.map((c) => (
-          <div key={c.t} style={{ height: `${Math.max(12, (c.n / max) * 100)}%`, borderRadius: 8, background: c.lv.color, opacity: c.mine ? 1 : 0.35 }} />
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))`, gap: 6, textAlign: 'center' }}>
-        {cols.map((c) => <span key={c.t} className="small" style={{ fontWeight: c.mine ? 800 : 400, color: c.mine ? 'var(--ink)' : 'var(--muted)' }}>{clockIL(c.t)}</span>)}
-      </div>
-    </div>
-  );
-}
-
-function Countdown({ at, now }) {
-  const m = Math.max(1, Math.round((at - now) / MIN));
-  return <span className="strong" style={{ color: 'var(--good)' }}>עוד {minutesLabel(m)}</span>;
-}
-
-// ---------- "מתי לצאת מהבית" לטיסה שממריאה מנתב״ג ----------
+// ---------- טיסה שממריאה מנתב״ג: מתי להיות בשדה ----------
 export function LeaveHomeCard({ f, now }) {
   const crowd = useCrowd();
-  const [drive, setDrive] = useDrive();
   const dep = localToInstant(f.departure.estimated || f.departure.scheduled, f.departure.timezone || 'Asia/Jerusalem');
-  if (!dep || dep < now) return null;
-  if (dep - now > 36 * HOUR) {
-    return (
-      <section className="card" style={{ gap: 6 }}>
-        <h2>מתי לצאת מהבית</h2>
-        <span style={{ fontSize: 14, lineHeight: 1.55 }}>יום לפני הטיסה נראה לך כאן מתי כדאי לצאת, לפי העומס הצפוי בצ׳ק-אין ולפי זמן הנסיעה שלך.</span>
-      </section>
-    );
-  }
+  if (!dep || dep < now || dep - now > 36 * HOUR) return null;
+  // 3 שעות לפני (לאילת שעתיים), ועוד חצי שעה כשצפוי עומס בצ׳ק-אין
   const domestic = f.arrival.iata === 'ETM' || f.arrival.iata === 'EIL';
-  const baseH = domestic ? 2 : 3;
-  const arriveRaw = dep - baseH * HOUR;
-  const load = checkinLoad(crowd, arriveRaw);
-  const lv = levelOf(load);
-  const extra = !domestic && lv?.key === 'high' ? 30 : 0;
-  const arriveAt = floor15(arriveRaw - extra * MIN);
-  const leaveAt = floor15(arriveAt - drive * MIN);
-  const reason = domestic ? 'לטיסה פנים-ארצית מספיק להגיע שעתיים לפני' : extra ? 'ההנחיה היא 3 שעות לפני, ובגלל העומס הוספנו חצי שעה' : 'ההנחיה הרשמית היא להגיע 3 שעות לפני ההמראה';
-
-  return (
-    <section className="card big" style={{ gap: 12 }}>
-      <div className="row">
-        <h2 style={{ fontSize: 18 }}>מתי לצאת מהבית</h2>
-        {lv && <span className="badge" style={{ background: lv.bg, color: lv.color }}>צ׳ק-אין {lv.text}</span>}
-      </div>
-      <div className="tiles" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <div className="tile"><span className="label">לצאת מהבית</span><span className="value" style={{ fontSize: 26 }}>{clockIL(leaveAt)}</span></div>
-        <div className="tile"><span className="label">להגיע לשדה</span><span className="value" style={{ fontSize: 26 }}>{clockIL(arriveAt)}</span></div>
-      </div>
-      <div className="row"><span className="muted">{reason}</span></div>
-      {now < leaveAt
-        ? <div className="row"><span className="muted">עד שצריך לצאת</span><Countdown at={leaveAt} now={now} /></div>
-        : <div className="row"><span className="strong" style={{ color: 'var(--coral-ink)' }}>צאו עכשיו</span><span className="strong" style={{ color: 'var(--coral-ink)' }}>תגיעו כ-{minutesLabel(Math.max(0, Math.round((dep - now - drive * MIN) / MIN)))} לפני ההמראה</span></div>}
-      <DrivePicker drive={drive} setDrive={setDrive} label="כמה זמן הנסיעה שלך לנתב״ג?" />
-      {!domestic && <LoadStrip crowd={crowd} center={arriveAt} loadAt={checkinLoad} caption="עומס צפוי באולם הצ׳ק-אין, לפי כמות הטיסות שממריאות" />}
-      <span className="small muted" style={{ lineHeight: 1.55 }}>
-        טיפ: צ׳ק-אין מהבית ומזוודות במשקל הנכון מקצרים מאוד את התור. בימים עמוסים החניונים מתמלאים, ורכבת או מונית יכולות לחסוך זמן.
-        העומס מחושב מלוח הטיסות של נתב״ג וזו הערכה. אם חברת התעופה ביקשה להגיע מוקדם יותר, ההנחיה שלה קובעת.
-      </span>
-    </section>
-  );
+  const raw = dep - (domestic ? 2 : 3) * HOUR;
+  const extra = !domestic && levelOf(checkinLoad(crowd, raw))?.key === 'high' ? 30 : 0;
+  const target = floor15(raw - extra * MIN);
+  return <TimerCard title="עד שצריך להיות בשדה" label="להיות בנתב״ג עד השעה" target={target} doneText="הגיע הזמן להיות בשדה!" />;
 }
 
-// ---------- "באים לאסוף?" לטיסה שנוחתת בנתב״ג ----------
+// ---------- טיסה שנוחתת בנתב״ג: מתי להיות בשדה כדי לאסוף ----------
 export function PickupCard({ f, now }) {
   const crowd = useCrowd();
-  const [drive, setDrive] = useDrive();
-  const [hand, setHand] = useState(false);
-  const landed = !!f.arrival.actual;
   const land = localToInstant(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled, f.arrival.timezone || 'Asia/Jerusalem');
   if (!land) return null;
-  if (now - land > 2 * HOUR) return null;
-
-  // יציאה מהטרמינל: ירידה מהמטוס, ביקורת גבולות ומזוודות. בממוצע 30 עד 50 דקות, יותר כשהרבה מטוסים נוחתים יחד
-  const load = arrivalLoad(crowd, land);
-  const lv = levelOf(load);
+  // יציאה מהטרמינל: ירידה מהמטוס, ביקורת גבולות ומזוודות. כ-30 דקות, יותר כשהרבה מטוסים נוחתים יחד
+  const lv = levelOf(arrivalLoad(crowd, land));
   const add = lv?.key === 'high' ? 20 : lv?.key === 'mid' ? 10 : 0;
-  const [lo, hi] = hand ? [20 + add / 2, 35 + add] : [30 + add, 50 + add];
-  const outFrom = ceil5(land + lo * MIN), outTo = ceil5(land + hi * MIN);
-  const leaveAt = floor15(outFrom - drive * MIN);
-  const sinceLand = Math.round((now - land) / MIN);
-
-  return (
-    <section className="card big" style={{ gap: 12 }}>
-      <div className="row">
-        <h2 style={{ fontSize: 18 }}>באים לאסוף?</h2>
-        {lv && <span className="badge" style={{ background: lv.bg, color: lv.color }}>נחיתות {lv.text}</span>}
-      </div>
-      {landed && <span className="strong" style={{ color: 'var(--good)' }}>המטוס נחת {sinceLand > 0 ? `לפני ${minutesLabel(sinceLand)}` : 'עכשיו'}</span>}
-      <div className="tiles" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <div className="tile"><span className="label">לצאת מהבית</span><span className="value" style={{ fontSize: 26 }}>{clockIL(leaveAt)}</span></div>
-        <div className="tile"><span className="label">יוצאים מהטרמינל</span><span className="value" style={{ fontSize: 20 }}><bdi dir="ltr">{clockIL(outFrom)}–{clockIL(outTo)}</bdi></span></div>
-      </div>
-      {now < leaveAt
-        ? <div className="row"><span className="muted">עד שצריך לצאת</span><Countdown at={leaveAt} now={now} /></div>
-        : <div className="row"><span className="strong" style={{ color: 'var(--coral-ink)' }}>צאו עכשיו</span><span className="strong" style={{ color: 'var(--coral-ink)', textAlign: 'left' }}>{(() => { const w = Math.round((now + drive * MIN - outFrom) / MIN); return w > 5 ? `הנוסע יחכה לכם כ-${minutesLabel(w)}` : 'תגיעו בדיוק בזמן'; })()}</span></div>}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
-        <input type="checkbox" checked={hand} onChange={(e) => setHand(e.target.checked)} style={{ width: 18, height: 18 }} />
-        טסים רק עם טרולי, בלי מזוודה בבטן המטוס
-      </label>
-      <DrivePicker drive={drive} setDrive={setDrive} label="כמה זמן הנסיעה שלך לנתב״ג?" />
-      <LoadStrip crowd={crowd} center={land} loadAt={arrivalLoad} caption="כמה מטוסים נוחתים סביב אותה שעה (יותר נחיתות = תורים ארוכים יותר)" />
-      <div className="card cream" style={{ padding: 12, gap: 4 }}>
-        <span className="strong">אל תחכו ברכב מול הטרמינל</span>
-        <span style={{ fontSize: 14, color: '#5C4A12', lineHeight: 1.55 }}>
-          מול טרמינל 3 מותר לעצור רק כדי להעלות נוסע מיד, ומצלמות אכיפה נותנות קנס של 500 ש״ח גם על נסיעה איטית שם.
-          עדיף לחכות בחניון ההמתנה, כמה דקות מהטרמינל: השעה הראשונה בחינם. בקשו מהנוסע להתקשר כשהוא יוצא עם המזוודות, ורק אז סעו לאסוף.
-        </span>
-      </div>
-      <span className="small muted">זו הערכה לפי שעת הנחיתה ולפי כמות הנחיתות בלוח של נתב״ג. עיכובים במזוודות או בביקורת הגבולות יכולים להאריך את היציאה.</span>
-    </section>
-  );
+  const target = ceil5(land + (30 + add) * MIN);
+  if (now > target + 30 * MIN || target - now > 36 * HOUR) return null;
+  return <TimerCard title="באים לאסוף?" label="להיות בנתב״ג בשעה" target={target} doneText="הנוסע יוצא עכשיו" />;
 }
 
 // ---------- עומס בצ׳ק-אין ל-12 השעות הקרובות (בלשונית "לוח") ----------
