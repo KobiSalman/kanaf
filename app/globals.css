@@ -246,3 +246,17 @@ button:disabled { opacity: 0.6; cursor: default; }
 .snack { display: flex; align-items: center; gap: 12px; }
 .snack-icon { width: 42px; height: 42px; flex: none; border-radius: 14px; background: #fff; box-shadow: 0 4px 12px rgba(14, 42, 71, 0.08); display: flex; align-items: center; justify-content: center; font-size: 22px; }
 .food-chip { background: #fff; border: 1.5px solid #FFD9C9; color: var(--ink); border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
+
+/* דגל מתנופף על תורן */
+.wflag { direction: ltr; position: relative; flex: none; order: 2; margin: 14px 0 14px 16px; width: 130px; height: 104px; display: flex; align-items: flex-start; }
+.wflag-pole { position: absolute; left: 0; top: -4px; bottom: -10px; width: 5px; border-radius: 3px; background: linear-gradient(90deg, #8A97A8, #D5DCE5 50%, #8A97A8); box-shadow: 0 2px 6px rgba(14, 42, 71, 0.25); }
+.wflag-pole::before { content: ''; position: absolute; top: -6px; left: -3px; width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFE08A, #C9A227); }
+.wflag-cloth { direction: ltr; position: relative; margin-left: 5px; margin-top: 6px; filter: drop-shadow(0 8px 12px rgba(14, 42, 71, 0.22)); }
+.wflag-slice { position: absolute; top: 0; height: 100%; background-repeat: no-repeat; animation: wflag 1.6s ease-in-out infinite; }
+.wflag-slice:first-child { border-radius: 2px 0 0 2px; }
+.wflag-slice:last-child { border-radius: 0 6px 6px 0; }
+@keyframes wflag {
+  0%, 100% { transform: translateY(calc(var(--amp) * -1)); filter: brightness(1.08); }
+  50% { transform: translateY(var(--amp)); filter: brightness(0.9); }
+}
+@media (prefers-reduced-motion: reduce) { .wflag-slice { animation: none; } }
