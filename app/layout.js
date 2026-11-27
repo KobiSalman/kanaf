@@ -5,7 +5,9 @@ export const metadata = {
   title: 'כנף · מלווה טיסה',
   description: 'כל המידע על הטיסה שלך, לפני ובזמן הטיסה',
   // באייפון, אחרי "הוסף למסך הבית": נפתח במסך מלא, עם השם כנף
-  appleWebApp: { capable: true, title: 'כנף', statusBarStyle: 'default' }
+  appleWebApp: { capable: true, title: 'כנף', statusBarStyle: 'default' },
+  // אימות הבעלות ב-Google Search Console
+  verification: { google: '0zm4MSLy2bvp3TUb0mlnWywi6Cg54fhJEihJyBxi7lI' }
 };
 
 export const viewport = {
