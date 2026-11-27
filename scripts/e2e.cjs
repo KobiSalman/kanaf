@@ -51,7 +51,12 @@ async function run(viewport, label) {
     await page.getByRole('option', { name: /בנגקוק/ }).first().waitFor({ timeout: 10000 });
     ok(`[${label}] "בנג" משלים לבנגקוק`, true);
     await page.getByRole('option', { name: /בנגקוק/ }).first().click();
-    await page.getByText('טיסות לבנגקוק').waitFor({ timeout: 10000 });
+    await page.getByRole('tab', { name: /טסים לבנגקוק/ }).waitFor({ timeout: 10000 });
+    // בורר "נוחתים מ..." קיים ועובד
+    await page.getByRole('tab', { name: /נוחתים מבנגקוק/ }).click();
+    await page.getByText(/שעת הנחיתה בנתב״ג|אין נחיתות מבנגקוק/).first().waitFor({ timeout: 15000 });
+    ok(`[${label}] בורר נחיתות ליעד`, true);
+    await page.getByRole('tab', { name: /טסים לבנגקוק/ }).click();
     const rowsLoc = page.locator('section.card.big button').filter({ hasText: /\d\d:\d\d/ });
     await rowsLoc.first().waitFor({ timeout: 15000 });
     const n = await rowsLoc.count();
