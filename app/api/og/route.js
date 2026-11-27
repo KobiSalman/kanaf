@@ -47,6 +47,50 @@ export async function GET(req) {
     </svg>
   );
 
+  // בלי טיסה (שיתוף של האתר עצמו): שמיים, מטוס גדול בדרך, והשם כנף
+  if (!flight) {
+    return new ImageResponse(
+      (
+        <div style={{ width: '100%', height: '100%', display: 'flex', position: 'relative', background: 'linear-gradient(180deg,#5DB8F5 0%,#8FD3FF 70%,#CFEFFF 100%)', fontFamily: 'Rubik, RubikHe', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', left: 80, top: 46, width: 140, height: 140, borderRadius: 999, background: '#FFC93C' }} />
+          <div style={{ position: 'absolute', left: 30, top: 170, width: 250, height: 70, borderRadius: 999, background: '#fff', opacity: 0.95 }} />
+          <div style={{ position: 'absolute', left: 90, top: 140, width: 110, height: 86, borderRadius: 999, background: '#fff', opacity: 0.95 }} />
+          <div style={{ position: 'absolute', left: 360, top: 500, width: 300, height: 76, borderRadius: 999, background: '#fff', opacity: 0.85 }} />
+          <div style={{ position: 'absolute', left: 440, top: 472, width: 130, height: 86, borderRadius: 999, background: '#fff', opacity: 0.85 }} />
+          <svg width="1200" height="630" viewBox="0 0 1200 630" style={{ position: 'absolute', left: 0, top: 0 }}>
+            <path d="M60 600 C 160 520, 250 450, 330 360" stroke="#fff" strokeWidth="10" strokeLinecap="round" strokeDasharray="2 26" fill="none" opacity="0.9" />
+            <g transform="translate(420 260) rotate(45) scale(9) translate(-12 -12)">
+              <path fill="#FF7A59" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
+            </g>
+          </svg>
+          <div style={{ position: 'absolute', right: 70, top: 120, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'row-reverse', alignItems: 'center', gap: 22 }}>
+              <svg width="120" height="120" viewBox="0 0 48 48">
+                <rect width="48" height="48" rx="14" fill="#fff" />
+                <circle cx="12" cy="13" r="6" fill="#FFC93C" />
+                <path d="M17 32 L29 8.5 Q30 7 32 7 L36.5 7 Q38.5 7 38.3 9 L36.5 31 Z" fill="#FF7A59" />
+                <path d="M2 33 L36 29.5 Q43 29.5 44 33 Q43 36.5 36 37 L2 40 Z" fill="#6EC6FF" />
+              </svg>
+              <Words text="כנף" size={130} color="#0B2545" />
+            </div>
+            <Words text="מלווה הטיסה שלך" size={52} weight={800} color="#0B2545" />
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.9)', borderRadius: 999, padding: '14px 30px', marginTop: 10 }}>
+              <Words text="מתי להגיע לשדה · איפה המטוס · מתי נוחתים" size={30} weight={700} color="#244B6E" />
+            </div>
+          </div>
+        </div>
+      ),
+      {
+        width: 1200, height: 630,
+        fonts: [
+          { name: 'Rubik', data: l7, weight: 700 }, { name: 'Rubik', data: l8, weight: 800 },
+          { name: 'RubikHe', data: h7, weight: 700 }, { name: 'RubikHe', data: h8, weight: 800 }
+        ],
+        headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=86400' }
+      }
+    );
+  }
+
   const body = flight ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 30, width: '100%' }}>
       <div style={{ display: 'flex', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>

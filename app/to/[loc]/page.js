@@ -24,7 +24,7 @@ export async function generateMetadata({ params }) {
   if (!d) return { title: 'כנף', robots: { index: false } };
   const title = `טיסות ל${d.city} ומ${d.city} בנתב״ג: היום ומחר · כנף`;
   const description = `${d.departures.length} המראות ל${d.city} ו-${d.arrivals.length} נחיתות מ${d.city} ביומיים הקרובים, לפי לוח נתב״ג. שעות, חברות, עיכובים ומעקב חי.`;
-  return { title, description, alternates: { canonical: `${SITE}/to/${loc}` }, openGraph: { title, description, url: `${SITE}/to/${loc}` } };
+  return { title, description, alternates: { canonical: `${SITE}/to/${loc}` }, openGraph: { title, description, url: `${SITE}/to/${loc}`, siteName: 'כנף', images: [{ url: '/api/og', width: 1200, height: 630 }] } };
 }
 
 function List({ items, dep }) {

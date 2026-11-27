@@ -2,8 +2,12 @@ import './globals.css';
 import { Analytics } from '@vercel/analytics/next';
 
 export const metadata = {
+  metadataBase: new URL('https://kanaf-seven.vercel.app'),
   title: 'כנף · מלווה טיסה',
   description: 'כל המידע על הטיסה שלך, לפני ובזמן הטיסה',
+  // ברירת מחדל לכל העמודים: שם האתר ותמונת השיתוף (עמוד שיש לו תמונה משלו גובר)
+  openGraph: { siteName: 'כנף', locale: 'he_IL', type: 'website', images: [{ url: '/api/og', width: 1200, height: 630 }] },
+  twitter: { card: 'summary_large_image', images: ['/api/og'] },
   // באייפון, אחרי "הוסף למסך הבית": נפתח במסך מלא, עם השם כנף
   appleWebApp: { capable: true, title: 'כנף', statusBarStyle: 'default' },
   // אימות הבעלות ב-Google Search Console

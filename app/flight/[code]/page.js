@@ -24,7 +24,8 @@ export async function generateMetadata({ params }) {
   const dep = r.dir === 'D';
   const title = dep ? `${code} מתל אביב ל${r.city}: סטטוס הטיסה בזמן אמת · כנף` : `${code} מ${r.city} לתל אביב: סטטוס הטיסה בזמן אמת · כנף`;
   const description = `${r.opName} ${code} · ${dep ? 'המראה מנתב״ג' : 'נחיתה בנתב״ג'} ${dayHe(r.stol)} ב-${t(r.ptol)}${r.stHe ? ` · ${r.stHe}` : ''}${r.term ? ` · טרמינל ${r.term}` : ''}. מעקב חי, מתי להגיע לשדה ומתי לבוא לאסוף.`;
-  return { title, description, alternates: { canonical: `${SITE}/flight/${code}` }, openGraph: { title, description, url: `${SITE}/flight/${code}` } };
+  const img = `/api/og?${new URLSearchParams({ f: code, a: r.opName || '', from: dep ? 'תל אביב' : r.city, to: dep ? r.city : 'תל אביב', k: dep ? 'המראה' : 'נחיתה', t: t(r.ptol || r.stol), s: r.stHe || '' })}`;
+  return { title, description, alternates: { canonical: `${SITE}/flight/${code}` }, openGraph: { title, description, url: `${SITE}/flight/${code}`, siteName: 'כנף', images: [{ url: img, width: 1200, height: 630 }] } };
 }
 
 export default async function FlightPage({ params }) {
