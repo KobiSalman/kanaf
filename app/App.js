@@ -10,6 +10,7 @@ import DestinationPicker from './DestinationPicker';
 import { codeshareInfo, delayStamp } from '../lib/flightLogic';
 import { mealInfo, MEAL_LABEL } from '../lib/mealLogic';
 import MEALS from '../data/meals.json';
+import { historyText } from '../lib/history';
 import { DestinationTeaser, DestinationTab } from './Destination';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
@@ -514,6 +515,30 @@ function MealCard({ f }) {
   );
 }
 
+// כמה הטיסה הזו מדייקת, לפי הטיסות שנשמרו מלוח נתב״ג. מוצג רק כשיש לפחות 5 טיסות
+function HistoryCard({ f }) {
+  const [h, setH] = useState(null);
+  const dir = f.direction === 'arrival' ? 'A' : 'D';
+  useEffect(() => {
+    let off = false;
+    setH(null);
+    fetch(`/api/history?flight=${encodeURIComponent(f.flight)}&dir=${dir}`).then((r) => r.json()).then((j) => { if (!off) setH(j); }).catch(() => {});
+    return () => { off = true; };
+  }, [f.flight, dir]);
+  const t = historyText(h);
+  if (!t) return null;
+  return (
+    <section className="card" style={{ gap: 8 }}>
+      <div className="row">
+        <h2>📊 כמה {f.flight} מדייקת?</h2>
+        <span className={`badge ${t.tone}`}>{t.title}</span>
+      </div>
+      <span style={{ fontSize: 14, lineHeight: 1.55 }}>{t.text}</span>
+      <span className="small muted">לפי {h.n} הטיסות האחרונות שנרשמו בלוח של נתב״ג{dir === 'A' ? ' (שעת הנחיתה)' : ' (שעת ההמראה)'}.</span>
+    </section>
+  );
+}
+
 function CodeshareCard({ f }) {
   const c = codeshareInfo(f);
   if (!c) return null;
@@ -711,6 +736,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
             {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
 
             <CodeshareCard f={f} />
+            <HistoryCard f={f} />
             <DestinationTeaser f={f} onOpen={goDest} />
 
             {f.source !== 'iaa' && !f.departure.gate && f.status === 'scheduled' && (
