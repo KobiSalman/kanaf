@@ -35,3 +35,7 @@ describe('שלמות הנתונים', () => {
     for (const [k, t] of Object.entries(TRANSPORT.airports)) expect(t.transit.length > 0 && t.apps.length > 0, k).toBe(true);
   });
 });
+
+describe('יעדים חדשים', () => {
+  it('ארגנטינה: שקע I, צריך מתאם', () => expect(plugInfo('I (מתח 220V)').short).toBe('צריך מתאם'));
+});

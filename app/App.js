@@ -711,7 +711,6 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
             {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
 
             <CodeshareCard f={f} />
-            <MealCard f={f} />
             <DestinationTeaser f={f} onOpen={goDest} />
 
             {f.source !== 'iaa' && !f.departure.gate && f.status === 'scheduled' && (
