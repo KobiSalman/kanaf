@@ -33,6 +33,8 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
   const [q, setQ] = useState('');
   const [dest, setDest] = useState(null);
   const [flights, setFlights] = useState(null);
+  // D: טסים לשם. A: מגיעים משם (למשל באים לאסוף)
+  const [dir, setDir] = useState('D');
   const [recent, setRecent] = useState([]);
 
   // חיפושים אחרונים (נשמרים רק בטלפון): טיסות שהתאריך שלהן לא עבר
@@ -52,7 +54,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
   useEffect(() => {
     if (!dest) return;
     setFlights(null);
-    fetch(`/api/board?dir=D&loc=${encodeURIComponent(dest.loc)}`).then((r) => r.json()).then((b) => {
+    fetch(`/api/board?dir=${dir}&loc=${encodeURIComponent(dest.loc)}`).then((r) => r.json()).then((b) => {
       // טיסות בשיתוף קוד (LY339, KL2475…) מוצגות כשורה אחת עם כל המספרים
       const groups = new Map();
       for (const r of b.rows || []) {
@@ -65,7 +67,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
       const list = [...groups.values()].map((g) => ({ ...g, codes: g.codes.sort((a, b) => a.fn - b.fn) })).sort((a, b) => a.ptol.localeCompare(b.ptol));
       setFlights(list);
     }).catch(() => setFlights([]));
-  }, [dest]);
+  }, [dest, dir]);
 
   const nq = norm(q);
   const suggestions = useMemo(() => {
@@ -84,16 +86,25 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
     );
   }
 
+  // בחירת יעד: אם יש אליו רק נחיתות, פותחים ישר על נחיתות
+  const pickDest = (d) => { setDir(d.flights === 0 && d.arrivals > 0 ? 'A' : 'D'); setDest(d); };
+
   if (dest) {
     let lastDay = null;
+    const arr = dir === 'A';
     return (
       <section className="card big" style={{ gap: 10 }}>
         <div className="row">
-          <h2 style={{ fontSize: 18 }}>טיסות ל{dest.city}</h2>
+          <h2 style={{ fontSize: 18 }}>{dest.city}</h2>
           <button type="button" className="btn-ghost" onClick={() => { setDest(null); setFlights(null); }} style={{ height: 36, padding: '0 12px' }}>שנה יעד</button>
         </div>
+        <div className="seg" role="tablist" aria-label="כיוון">
+          <button type="button" role="tab" aria-selected={!arr} className={!arr ? 'on' : ''} onClick={() => setDir('D')}>🛫 טסים ל{dest.city}</button>
+          <button type="button" role="tab" aria-selected={arr} className={arr ? 'on' : ''} onClick={() => setDir('A')}>🛬 נוחתים מ{dest.city}</button>
+        </div>
+        {arr && <span className="small muted" style={{ marginTop: -4 }}>השעה היא שעת הנחיתה בנתב״ג. מתאים למי שבא לאסוף.</span>}
         {!flights && <span className="muted">טוען טיסות…</span>}
-        {flights && flights.length === 0 && <span className="muted">אין טיסות ל{dest.city} בשלושת הימים הקרובים בלוח של נתב״ג.</span>}
+        {flights && flights.length === 0 && <span className="muted">{arr ? `אין נחיתות מ${dest.city}` : `אין טיסות ל${dest.city}`} בשלושת הימים הקרובים בלוח של נתב״ג.</span>}
         {flights && flights.map((g) => {
           const day = dayLabel(g.ptol);
           const showDay = day !== lastDay; lastDay = day;
@@ -112,6 +123,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
                   {g.codes.length > 1 && <span className="small muted">גם: {g.codes.slice(1).map((c) => `${c.op}${c.no}`).join(', ')}</span>}
                 </span>
                 {(cancelled || late) && <span className={`badge ${cancelled ? 'bad' : 'warn'}`}>{g.stHe}</span>}
+                {!cancelled && !late && /LANDED|LANDING/.test(g.st) && <span className="badge good">{g.stHe}</span>}
               </button>
             </div>
           );
@@ -139,7 +151,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
         <label htmlFor="destSearch">עיר או מדינה</label>
         <input id="destSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="לדוגמה: בנגקוק, יוון, London" autoComplete="off"
           role="combobox" aria-expanded={suggestions.length > 0} aria-controls="destList"
-          onKeyDown={(e) => { if (e.key === 'Enter' && suggestions[0]) { e.preventDefault(); setDest(suggestions[0]); } }} />
+          onKeyDown={(e) => { if (e.key === 'Enter' && suggestions[0]) { e.preventDefault(); pickDest(suggestions[0]); } }} />
       </div>
       {error && <div className="error" role="alert">{error}</div>}
       {!dests && !error && <span className="muted">טוען יעדים…</span>}
@@ -147,13 +159,13 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
         <div id="destList" role="listbox" aria-label="יעדים" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {!nq && <span className="small muted">יעדים פופולריים בימים הקרובים</span>}
           {suggestions.map((d) => (
-            <button key={d.loc} type="button" role="option" aria-selected="false" onClick={() => setDest(d)}
+            <button key={d.loc} type="button" role="option" aria-selected="false" onClick={() => pickDest(d)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 14, border: 'none', background: 'var(--ground)', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'right' }}>
               <span style={{ display: 'flex', flexDirection: 'column' }}>
                 <span className="strong" style={{ fontSize: 16 }}>{d.city}</span>
                 <span className="small muted">{d.country}{d.loc ? ` · ${d.loc}` : ''}</span>
               </span>
-              <span className="small muted">{d.flights} טיסות</span>
+              <span className="small muted" style={{ textAlign: 'left' }}>{d.flights ? `${d.flights} המראות` : ''}{d.flights && d.arrivals ? <br /> : null}{d.arrivals ? `${d.arrivals} נחיתות` : ''}</span>
             </button>
           ))}
           {nq && suggestions.length === 0 && <span className="muted">לא מצאנו טיסות ל״{q}״ בשלושת הימים הקרובים.</span>}
