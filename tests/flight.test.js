@@ -68,3 +68,21 @@ describe('שיתוף קוד', () => {
     expect(logic.codeshareInfo(flight)).toBeNull();
   });
 });
+
+describe('טיסה נכנסת שממריאה ביום אחד ונוחתת למחרת', () => {
+  const row = (stol, st) => ({ CHOPER: 'UA', CHFLTN: '0090', CHOPERD: 'UNITED AIRLINES', CHSTOL: stol, CHPTOL: stol, CHAORD: 'A', CHLOC1: 'EWR', CHLOC1D: 'NEWARK', CHLOC1TH: 'ניו יורק', CHLOC1T: 'NEW YORK', CHLOC1CH: 'ארצות הברית', CHLOCCT: 'UNITED STATES', CHTERM: 3, CHCINT: null, CHCKZN: null, CHRMINE: st, CHRMINH: '' });
+  beforeEach(async () => {
+    vi.resetModules();
+    mockFetch({ extraRows: [row('2026-11-27T17:00:00', 'LANDING'), row('2026-11-28T17:00:00', 'NOT FINAL')] });
+    iaa = await import('../lib/iaa.js');
+  });
+  it('UA90 ב-27/11: מקבלים את זו שנוחתת היום ב-17:00, לא את זו שממריאה הלילה', async () => {
+    const { flight } = await iaa.iaaFlight('UA90', '2026-11-27');
+    expect(flight.arrival.scheduled).toBe('2026-11-27T17:00:00');
+    expect(flight.date).toBe('2026-11-26');
+  });
+  it('לפי תאריך ההמראה (26/11) מקבלים את אותה טיסה, ו-28/11 נותן את של מחר', async () => {
+    expect((await iaa.iaaFlight('UA90', '2026-11-26')).flight.arrival.scheduled).toBe('2026-11-27T17:00:00');
+    expect((await iaa.iaaFlight('UA90', '2026-11-28')).flight.arrival.scheduled).toBe('2026-11-28T17:00:00');
+  });
+});
