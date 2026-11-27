@@ -86,3 +86,17 @@ describe('טיסה נכנסת שממריאה ביום אחד ונוחתת למח
     expect((await iaa.iaaFlight('UA90', '2026-11-28')).flight.arrival.scheduled).toBe('2026-11-28T17:00:00');
   });
 });
+
+describe('קישור משותף לטיסה נכנסת', () => {
+  const row = (stol, st) => ({ CHOPER: 'UA', CHFLTN: '0084', CHOPERD: 'UNITED AIRLINES', CHSTOL: stol, CHPTOL: stol, CHAORD: 'A', CHLOC1: 'EWR', CHLOC1D: 'NEWARK', CHLOC1TH: 'ניו יורק', CHLOC1T: 'NEW YORK', CHLOC1CH: 'ארצות הברית', CHLOCCT: 'UNITED STATES', CHTERM: 3, CHCINT: null, CHCKZN: null, CHRMINE: st, CHRMINH: '' });
+  beforeEach(async () => {
+    vi.resetModules();
+    mockFetch({ extraRows: [row('2026-11-27T09:20:00', 'LANDED'), row('2026-11-28T09:20:00', 'FINAL')] });
+    iaa = await import('../lib/iaa.js');
+  });
+  it('תאריך הנחיתה בישראל (28/11) מחזיר בדיוק את הטיסה של מחר, גם אחרי שיתוף', async () => {
+    const { flight } = await iaa.iaaFlight('UA84', '2026-11-28');
+    expect(flight.arrival.scheduled).toBe('2026-11-28T09:20:00');
+    expect(flight.boardDate).toBe('2026-11-28');
+  });
+});
