@@ -1212,6 +1212,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState('flights');
+  // כל מעבר בין מסכים, וכל טיסה חדשה שנפתחת, מתחילים מראש העמוד
+  useEffect(() => { window.scrollTo(0, 0); }, [tab, flight?.flight, flight?.date]);
   // פרטים שמצורפים אוטומטית ל"דווח על בעיה"
   useEffect(() => { window.__kanafCtx = { ...(window.__kanafCtx || {}), flight: flight?.flight || null, date: flight?.date || null, tab }; }, [flight, tab]);
   const [now, setNow] = useState(Date.now());
@@ -1376,7 +1378,7 @@ export default function App() {
   return (
     <main className="app">
       <BrandBar />
-      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} changes={changes} clearChanges={() => setChanges(null)} goAircraft={() => setTab('aircraft')} goDest={() => { setTab('dest'); window.scrollTo(0, 0); }} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} changes={changes} clearChanges={() => setChanges(null)} goAircraft={() => setTab('aircraft')} goDest={() => setTab('dest')} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
       {tab === 'live' && <LiveTab f={view} now={now} liveLoading={liveLoading} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}
       {tab === 'status' && <StatusTab />}
