@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
 import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { BrandBar } from './Logo';
@@ -8,6 +8,7 @@ import InstallHint from './InstallHint';
 import NearbyMap from './NearbyMap';
 import DestinationPicker from './DestinationPicker';
 import { codeshareInfo, delayStamp } from '../lib/flightLogic';
+import { flightStage, boardingAt } from '../lib/stageLogic';
 import { mealInfo, MEAL_LABEL } from '../lib/mealLogic';
 import MEALS from '../data/meals.json';
 import { DestinationTeaser, DestinationTab } from './Destination';
@@ -471,24 +472,72 @@ function BoardTab({ now, onOpen }) {
   );
 }
 
-function ShareCard({ f }) {
+const WA_PATH = 'M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 4.54 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.24-8.24 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28z';
+
+// שיתוף בוואטסאפ: כפתור קטן ליד "שנה טיסה", במקום כרטיס שלם
+function ShareButton({ f }) {
   const url = typeof window !== 'undefined' ? `${window.location.origin}/?f=${encodeURIComponent(f.flight)}&d=${encodeURIComponent(f.date)}` : '';
   const dest = f.arrival?.iata ? cityOf(f.arrival) : null;
   const text = `עקבו אחרי הטיסה שלי ${f.flight}${dest ? ` ל${dest}` : ''} בזמן אמת ✈️`;
   return (
-    <section className="card" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <h2>שתף את הטיסה</h2>
-        <span className="small muted">מי שמקבל רואה את הטיסה מתעדכנת</span>
+    <a href={`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`} target="_blank" rel="noopener noreferrer" aria-label="שתף את הטיסה בוואטסאפ" className="wa-btn">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d={WA_PATH} /></svg>
+      <span>שתף</span>
+    </a>
+  );
+}
+
+// ---------- כרטיסי "ראש המסך" לפי שלב ----------
+function BoardingLead({ f, depAt }) {
+  const b = boardingAt(depAt);
+  return (
+    <section className="card big" style={{ gap: 8 }}>
+      <span className="small muted">כבר בשדה?</span>
+      <span style={{ fontSize: 26, fontWeight: 800 }}>עלייה למטוס בערך ב-{b ? new Date(b).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }) : '—'}</span>
+      <span style={{ fontSize: 15, lineHeight: 1.55 }}>
+        {f.departure.gate ? <b>שער {f.departure.gate}</b> : 'השער מופיע על המסכים בטרמינל, בדרך כלל כשעה לפני ההמראה.'}
+        {f.departure.checkin ? <> · דלפקים {f.departure.checkin}{f.departure.checkinZone ? `, אזור ${f.departure.checkinZone}` : ''}</> : null}
       </span>
-      <a href={`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`} target="_blank" rel="noopener noreferrer" aria-label="שלח בוואטסאפ"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 48, padding: '0 18px', borderRadius: 14, background: '#25D366', color: '#fff', fontWeight: 800, fontSize: 16, textDecoration: 'none', flex: 'none' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-          <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 4.54 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.24-8.24 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28z" />
-        </svg>
-        וואטסאפ
-      </a>
+      <span className="small muted">שעה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.</span>
     </section>
+  );
+}
+
+function AirLead({ f, left, arrivingTLV, goLive }) {
+  const t = hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled);
+  return (
+    <section className="card big" style={{ gap: 8 }}>
+      <span className="small muted">{arrivingTLV ? 'בדרך לישראל' : 'בטיסה'}</span>
+      <span style={{ fontSize: 26, fontWeight: 800 }}>נוחתים ב-{t}</span>
+      {left > 0 && <span style={{ fontSize: 16 }}>עוד <b>{minutesLabel(left)}</b>{f.arrival.estimatedByUs ? ' (הערכה לפי המרחק)' : ''}</span>}
+      <button type="button" className="btn-sun" onClick={goLive} style={{ flex: 'none' }}>איפה המטוס עכשיו ←</button>
+    </section>
+  );
+}
+
+function LandedLead({ f, now, waiting }) {
+  const at = localToInstant(f.arrival.actual || f.arrival.estimated, f.arrival.timezone || 'Asia/Jerusalem');
+  const t = hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled);
+  const fresh = at && now - at < 60 * 60000;
+  const outAt = at ? at + 35 * 60000 : null;
+  return (
+    <section className="card big" style={{ gap: 8 }}>
+      <span style={{ fontSize: 26, fontWeight: 800 }}>{waiting ? 'נחתו' : 'נחתתם'} ב-{t} ✓</span>
+      {waiting && fresh && <span style={{ fontSize: 15, lineHeight: 1.55 }}>בדרך כלל הנוסעים יוצאים מהטרמינל 30–40 דקות אחרי הנחיתה, אחרי ביקורת הגבולות והמזוודות. {now < outAt ? <>כלומר בערך ב-<b>{new Date(outAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false })}</b>.</> : 'כלומר הם אמורים לצאת בדקות האלה.'}</span>}
+      {!waiting && <span style={{ fontSize: 15, lineHeight: 1.55 }}>איך מגיעים מהשדה לעיר? בכרטיס הטיפים שלמטה.</span>}
+    </section>
+  );
+}
+
+// "עוד פרטים": כל מה שלא חשוב ברגע הזה, מקופל
+function MoreDetails({ children }) {
+  const items = (Array.isArray(children) ? children : [children]).filter(Boolean);
+  if (!items.length) return null;
+  return (
+    <details className="more">
+      <summary className="card more-sum"><span className="strong">עוד פרטים על הטיסה</span><span className="muted small">זמנים, המטוס ועוד</span></summary>
+      <div className="more-body">{items.map((x, i) => <Fragment key={i}>{x}</Fragment>)}</div>
+    </details>
   );
 }
 
@@ -556,7 +605,8 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
 
   let pill = 'מעקב טיסה';
   if (hasFlight) {
-    if (fs.landed) pill = 'נחתה';
+    if (f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '')) pill = 'בוטלה';
+    else if (fs.landed) pill = 'נחתה';
     else if (fs.departed) pill = 'בטיסה עכשיו';
     else if (toDep <= 0) pill = 'ממריאה בקרוב';
     else if (toDep > 0) pill = toDep > 1440 ? `עוד ${Math.round(toDep / 1440)} ימים` : `עוד ${minutesLabel(toDep)}`;
@@ -574,6 +624,171 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
       boarding = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
     }
   }
+  // ---------- סידור המסך לפי שלב הטיסה ----------
+  let stageView = null;
+  if (hasFlight && !f.liveOnly) {
+    const cs = codeshareInfo(f);
+    const csLine = cs ? (cs.op.own ? `נמכרת גם בתור ${cs.others.map((x) => x.flight).join(', ')}` : `מופעלת על ידי ${cs.op.airline || cs.op.iata} (${cs.op.flight})`) : null;
+    const cancelled = f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '');
+    const arrivingTLV = f.arrival.iata === 'TLV';
+    const leavePick = (
+      <>
+              {f.departure.iata === 'TLV' && !fs.departed && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <LeaveHomeCard f={f} now={now} />}
+              {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
+      </>
+    );
+    const gateNote = (
+      <>
+              {f.source !== 'iaa' && !f.departure.gate && f.status === 'scheduled' && (
+                <section className="card cream note">
+                  <div className="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E2A47" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span className="strong">השער עוד לא פורסם</span>
+                    <span style={{ fontSize: 14, color: '#5C4A12', lineHeight: 1.5 }}>הוא נקבע בדרך כלל כמה שעות לפני ההמראה.</span>
+                  </div>
+                </section>
+              )}
+      </>
+    );
+    const planeCard = (
+      <>
+              {(() => {
+                // רק כשהמטוס זוהה הכרטיס לחיץ ומוביל למסך המטוס
+                const known = !!f.aircraft?.type;
+                const Tag = known ? 'button' : 'section';
+                return (
+                <Tag {...(known ? { type: 'button', onClick: goAircraft } : {})} className="card peach" style={{ border: 'none', textAlign: 'right', cursor: known ? 'pointer' : 'default', flexDirection: 'row', alignItems: 'center', gap: 14, color: 'inherit' }}>
+                  <div className="plane-dot" style={{ width: 54, height: 54, borderRadius: 18 }}><span style={{ color: '#fff', display: 'flex' }}><TopIcon /></span></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                    <span style={{ fontSize: 13, color: '#6B3A2A' }}>{f.aircraft?.type ? 'תטוס ב-' : 'המטוס של הטיסה'}</span>
+                    <span style={{ fontSize: 17, fontWeight: 800 }}>{f.aircraft?.type ? `${AIRCRAFT[f.aircraft.type] || f.aircraft.type}${f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}` : (fs.departed ? 'לא הצלחנו לזהות את המטוס' : 'נזהה את המטוס בקרוב')}</span>
+                    <span style={{ fontSize: 14, fontWeight: f.aircraft?.type ? 700 : 400, color: f.aircraft?.type ? 'var(--coral-ink)' : '#6B3A2A', lineHeight: 1.5 }}>{f.aircraft?.type ? 'הכר את המטוס שלך ←' : fs.departed ? 'המטוס לא משדר זיהוי שאנחנו קולטים כרגע' : 'בדרך כלל כחצי שעה עד שעה לפני ההמראה, כשהמטוס מתחיל לשדר. אז יופיעו דגם, תמונה ותרשים מושבים'}</span>
+                    {!f.aircraft?.type && liveLoading && <PlaneLoader small text="מחפש את המטוס…" />}
+                  </div>
+                </Tag>
+                );
+              })()}
+      </>
+    );
+    const inboundCard = (
+      <>
+              {!fs.departed && f.aircraft?.registration && (inbound
+                ? <InboundCard f={f} inbound={inbound} now={now} />
+                : <section className="card"><h2>המטוס הגיע?</h2><PlaneLoader small text="בודק איפה המטוס עכשיו…" /></section>)}
+      </>
+    );
+    const timesCard = (
+      <>
+              <section className="card">
+                <h2>הזמנים</h2>
+                <div className="row"><span className="muted">{f.departure.estimatedByUs ? 'המראה משוערת (לפי המרחק, שעון מקומי)' : 'המראה מתוכננת'}</span><span className="strong">{approx(f.departure)}{hhmm(f.departure.estimated || f.departure.scheduled)}</span></div>
+                {f.source === 'iaa' && f.direction === 'departure' && !f.departure.actual && f.departure.delay > 0 && (
+                  <div className="row"><span className="muted">שעה מעודכנת</span><span className="strong" style={{ color: 'var(--coral-ink)' }}>{hhmm(f.departure.estimated)} · איחור {f.departure.delay} דק׳</span></div>
+                )}
+                {f.departure.actual && (
+                  <div className="row"><span className="muted">המראה בפועל</span><span className="strong" style={{ color: f.departure.delay > 0 ? 'var(--coral-ink)' : 'var(--good)' }}>{hhmm(f.departure.actual)}{f.departure.delay > 0 ? ` · איחור ${f.departure.delay} דק׳` : ''}</span></div>
+                )}
+                {!f.arrival.estimatedByUs && <div className="row"><span className="muted">נחיתה מתוכננת (שעון מקומי)</span><span className="strong">{hhmm(f.arrival.scheduled)}</span></div>}
+                <div className="row"><span className="muted">{f.arrival.actual ? 'נחיתה בפועל' : f.arrival.estimatedByUs ? 'נחיתה משוערת (לפי המרחק, שעון מקומי)' : 'נחיתה צפויה'}</span>
+                  <span className="strong" style={{ color: 'var(--good)' }}>
+                    {approx(f.arrival)}{hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled)}
+                    {!f.arrival.actual && left > 0 ? ` · עוד ${minutesLabel(left)}` : ''}
+                    {early > 0 && !f.arrival.estimatedByUs ? ` · ${early} דק׳ מוקדם` : ''}
+                  </span>
+                </div>
+                {f.arrival.terminal && <div className="row"><span className="muted">טרמינל נחיתה</span><span className="strong">{f.arrival.terminal}</span></div>}
+                <span className="small muted">{f.source === 'iaa' ? 'נתונים רשמיים מלוח נתב״ג של רשות שדות התעופה' : 'נתונים אמיתיים מ-Aviationstack'} · {agoLabel(now - Date.parse(f.fetchedAt))}</span>
+              </section>
+      </>
+    );
+
+    const pass = (
+      <>
+              <BoardingPass
+                stamp={stamp}
+                seed={`${f.flight}${f.date}`}
+                label={`כרטיס טיסה ${f.flight} מ-${f.departure.iata} ל-${f.arrival.iata}`}
+                front={
+                  <>
+                    <div className="row">
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <AirlineLogo iata={airIata(f)} name={f.airline} size={30} />
+                        <span style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span className="strong">{f.airline || f.flight}</span>
+                          <span className="muted small">{f.flight} · {f.date}</span>
+                        </span>
+                      </span>
+                      {!stamp && <span className={`badge ${stTone}`}>{f.statusHe || st.text}</span>}
+                    </div>
+                    <div className="route">
+                      <div className="end">
+                        <span className="code">{f.departure.iata}</span>
+                        <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.departure)}</span>
+                        <span className="strong" style={{ fontSize: 15 }}>{f.departure.actual ? 'המריאה ' : ''}{approx(f.departure)}{hhmm(f.departure.actual || f.departure.estimated || f.departure.scheduled)}</span>
+                      </div>
+                      <div className="mid" aria-hidden="true">
+                        <div className="dots" /><div className="plane-dot"><PlaneIcon color="#fff" /></div><div className="dots" />
+                      </div>
+                      <div className="end left">
+                        <span className="code">{f.arrival.iata}</span>
+                        <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.arrival)}</span>
+                        <span className="strong" style={{ fontSize: 15 }}>{f.arrival.actual ? 'נחתה ' : ''}{approx(f.arrival)}{hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled)}</span>
+                      </div>
+                    </div>
+                    <div className="tiles" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                      <div className="tile"><span className="label">טרמינל</span><span className="value">{f.departure.terminal || f.arrival.terminal || '—'}</span></div>
+                      <div className="tile"><span className="label">שער</span>{f.departure.gate ? <span className="value">{f.departure.gate}</span> : (fs.departed || f.source === 'iaa') ? <span className="value" style={{ color: '#8AA0B8' }}>—</span> : <span className="soon">בקרוב</span>}</div>
+                      <div className="tile"><span className="label">מושב</span><span className="value" style={{ color: seat ? 'var(--ink)' : '#8AA0B8' }}>{seat || '—'}</span></div>
+                      <div className="tile"><span className="label">עלייה*</span><span className="value">{(!f.departure.estimatedByUs && boarding) || '—'}</span></div>
+                    </div>
+                    {f.departure.checkin && <span className="strong" style={{ fontSize: 14, marginTop: -6 }}>דלפקי צ׳ק-אין: {f.departure.checkin}{f.departure.checkinZone ? ` · אזור ${f.departure.checkinZone}` : ''}</span>}
+                    {csLine && <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)', marginTop: -6 }}>✈ {csLine}</span>}
+                    <span className="small muted" style={{ marginTop: -8 }}>* שעת עלייה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.{(f.departure.estimatedByUs || f.arrival.estimatedByUs) ? ' שעת הנחיתה ביעד היא הערכה שלנו לפי המרחק.' : ''}</span>
+                  </>
+                }
+                back={
+                  <>
+                    <div className="row">
+                      <span className="strong" style={{ fontSize: 17 }}>המטוס של הטיסה</span>
+                      <AirlineLogo iata={airIata(f)} name={f.airline} size={26} />
+                    </div>
+                    <span style={{ fontSize: 22, fontWeight: 800 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : 'עוד לא שובץ מטוס'}</span>
+                    {f.aircraft?.registration && <span className="muted">רישום: {f.aircraft.registration}</span>}
+                    {typeInfo && (
+                      <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                        <div className="tile"><span className="label">אורך</span><span className="value" style={{ fontSize: 17 }}>{typeInfo.lengthM} מ׳</span></div>
+                        <div className="tile"><span className="label">מוטת כנפיים</span><span className="value" style={{ fontSize: 17 }}>{typeInfo.spanM} מ׳</span></div>
+                        <div className="tile"><span className="label">תצורה</span><span className="value" style={{ fontSize: 17, direction: 'ltr', textAlign: 'right' }}>{typeInfo.layout}</span></div>
+                      </div>
+                    )}
+                    {seat && typeInfo && seatSide(seat, typeInfo.layout) && <span className="strong" style={{ color: 'var(--good)' }}>מושב {seat}: {seatSide(seat, typeInfo.layout).text}</span>}
+                    {typeInfo?.fact && <span style={{ fontSize: 14, lineHeight: 1.55 }}>✦ {typeInfo.fact}</span>}
+                  </>
+                }
+              />
+      </>
+    );
+    const codeshareCard = <CodeshareCard f={f} />;
+    const destTeaser = <DestinationTeaser f={f} onOpen={goDest} />;
+    const stage = flightStage({ arrivingTLV, depAt: t.depAt, departed: fs.departed, landed: fs.landed, cancelled }, now);
+    const airLead = <AirLead f={f} left={left} arrivingTLV={arrivingTLV} goLive={goLive} />;
+    const more = (items) => <MoreDetails>{items}</MoreDetails>;
+    const S = {
+      cancelled: [pass, more([codeshareCard, timesCard])],
+      early: [pass, destTeaser, more([codeshareCard, planeCard, timesCard])],
+      today: [leavePick, pass, more([destTeaser, codeshareCard, planeCard, inboundCard, timesCard])],
+      airport: [<BoardingLead key="bl" f={f} depAt={t.depAt} />, f.aircraft?.registration ? inboundCard : null, pass, more([destTeaser, codeshareCard, planeCard, gateNote, timesCard])],
+      air: arrivingTLV
+        ? [airLead, leavePick, pass, more([planeCard, codeshareCard, timesCard])]
+        : [airLead, pass, destTeaser, more([planeCard, codeshareCard, timesCard])],
+      landed: arrivingTLV
+        ? [<LandedLead key="ll" f={f} now={now} waiting />, pass, more([codeshareCard, timesCard, planeCard])]
+        : [<LandedLead key="ll" f={f} now={now} />, destTeaser, pass, more([codeshareCard, timesCard, planeCard])],
+      before: [leavePick, pass, more([inboundCard, planeCard, codeshareCard, timesCard])]
+    };
+    stageView = (S[stage] || S.today).map((x, i) => <Fragment key={i}>{x}</Fragment>);
+  }
+
   const theme = skyTheme(f?.arrival?.timezone || 'Asia/Jerusalem', now);
   const destName = hasFlight && f.arrival.iata ? cityOf(f.arrival) : 'ישראל';
 
@@ -585,10 +800,13 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
         <h1>{title}</h1>
         {theme.clock && <p style={{ fontSize: 14, opacity: 0.9 }}>עכשיו {theme.name} ב{destName} · {theme.clock}</p>}
         {hasFlight && !editing && (
-          <button type="button" className="btn-dark" onClick={() => setEditing(true)}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn-dark" onClick={() => setEditing(true)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
             שנה טיסה או תאריך
           </button>
+            {!f.liveOnly && <ShareButton f={f} />}
+          </div>
         )}
       </header>
 
@@ -645,127 +863,11 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                 {changes.items.map((x) => <span key={x} style={{ fontSize: 15, fontWeight: 700 }}>{x}</span>)}
               </section>
             )}
-            <BoardingPass
-              stamp={stamp}
-              seed={`${f.flight}${f.date}`}
-              label={`כרטיס טיסה ${f.flight} מ-${f.departure.iata} ל-${f.arrival.iata}`}
-              front={
-                <>
-                  <div className="row">
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <AirlineLogo iata={airIata(f)} name={f.airline} size={30} />
-                      <span style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="strong">{f.airline || f.flight}</span>
-                        <span className="muted small">{f.flight} · {f.date}</span>
-                      </span>
-                    </span>
-                    {!stamp && <span className={`badge ${stTone}`}>{f.statusHe || st.text}</span>}
-                  </div>
-                  <div className="route">
-                    <div className="end">
-                      <span className="code">{f.departure.iata}</span>
-                      <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.departure)}</span>
-                      <span className="strong" style={{ fontSize: 15 }}>{f.departure.actual ? 'המריאה ' : ''}{approx(f.departure)}{hhmm(f.departure.actual || f.departure.estimated || f.departure.scheduled)}</span>
-                    </div>
-                    <div className="mid" aria-hidden="true">
-                      <div className="dots" /><div className="plane-dot"><PlaneIcon color="#fff" /></div><div className="dots" />
-                    </div>
-                    <div className="end left">
-                      <span className="code">{f.arrival.iata}</span>
-                      <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.arrival)}</span>
-                      <span className="strong" style={{ fontSize: 15 }}>{f.arrival.actual ? 'נחתה ' : ''}{approx(f.arrival)}{hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled)}</span>
-                    </div>
-                  </div>
-                  <div className="tiles" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-                    <div className="tile"><span className="label">טרמינל</span><span className="value">{f.departure.terminal || f.arrival.terminal || '—'}</span></div>
-                    <div className="tile"><span className="label">שער</span>{f.departure.gate ? <span className="value">{f.departure.gate}</span> : (fs.departed || f.source === 'iaa') ? <span className="value" style={{ color: '#8AA0B8' }}>—</span> : <span className="soon">בקרוב</span>}</div>
-                    <div className="tile"><span className="label">מושב</span><span className="value" style={{ color: seat ? 'var(--ink)' : '#8AA0B8' }}>{seat || '—'}</span></div>
-                    <div className="tile"><span className="label">עלייה*</span><span className="value">{(!f.departure.estimatedByUs && boarding) || '—'}</span></div>
-                  </div>
-                  {f.departure.checkin && <span className="strong" style={{ fontSize: 14, marginTop: -6 }}>דלפקי צ׳ק-אין: {f.departure.checkin}{f.departure.checkinZone ? ` · אזור ${f.departure.checkinZone}` : ''}</span>}
-                  <span className="small muted" style={{ marginTop: -8 }}>* שעת עלייה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.{(f.departure.estimatedByUs || f.arrival.estimatedByUs) ? ' שעת הנחיתה ביעד היא הערכה שלנו לפי המרחק.' : ''}</span>
-                </>
-              }
-              back={
-                <>
-                  <div className="row">
-                    <span className="strong" style={{ fontSize: 17 }}>המטוס של הטיסה</span>
-                    <AirlineLogo iata={airIata(f)} name={f.airline} size={26} />
-                  </div>
-                  <span style={{ fontSize: 22, fontWeight: 800 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : 'עוד לא שובץ מטוס'}</span>
-                  {f.aircraft?.registration && <span className="muted">רישום: {f.aircraft.registration}</span>}
-                  {typeInfo && (
-                    <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                      <div className="tile"><span className="label">אורך</span><span className="value" style={{ fontSize: 17 }}>{typeInfo.lengthM} מ׳</span></div>
-                      <div className="tile"><span className="label">מוטת כנפיים</span><span className="value" style={{ fontSize: 17 }}>{typeInfo.spanM} מ׳</span></div>
-                      <div className="tile"><span className="label">תצורה</span><span className="value" style={{ fontSize: 17, direction: 'ltr', textAlign: 'right' }}>{typeInfo.layout}</span></div>
-                    </div>
-                  )}
-                  {seat && typeInfo && seatSide(seat, typeInfo.layout) && <span className="strong" style={{ color: 'var(--good)' }}>מושב {seat}: {seatSide(seat, typeInfo.layout).text}</span>}
-                  {typeInfo?.fact && <span style={{ fontSize: 14, lineHeight: 1.55 }}>✦ {typeInfo.fact}</span>}
-                </>
-              }
-            />
+            {stageView}
 
-            {f.departure.iata === 'TLV' && !fs.departed && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <LeaveHomeCard f={f} now={now} />}
-            {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
 
-            <CodeshareCard f={f} />
-            <DestinationTeaser f={f} onOpen={goDest} />
 
-            {f.source !== 'iaa' && !f.departure.gate && f.status === 'scheduled' && (
-              <section className="card cream note">
-                <div className="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E2A47" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg></div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span className="strong">השער עוד לא פורסם</span>
-                  <span style={{ fontSize: 14, color: '#5C4A12', lineHeight: 1.5 }}>הוא נקבע בדרך כלל כמה שעות לפני ההמראה.</span>
-                </div>
-              </section>
-            )}
 
-            <ShareCard f={f} />
-
-            {(() => {
-              // רק כשהמטוס זוהה הכרטיס לחיץ ומוביל למסך המטוס
-              const known = !!f.aircraft?.type;
-              const Tag = known ? 'button' : 'section';
-              return (
-              <Tag {...(known ? { type: 'button', onClick: goAircraft } : {})} className="card peach" style={{ border: 'none', textAlign: 'right', cursor: known ? 'pointer' : 'default', flexDirection: 'row', alignItems: 'center', gap: 14, color: 'inherit' }}>
-                <div className="plane-dot" style={{ width: 54, height: 54, borderRadius: 18 }}><span style={{ color: '#fff', display: 'flex' }}><TopIcon /></span></div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                  <span style={{ fontSize: 13, color: '#6B3A2A' }}>{f.aircraft?.type ? 'תטוס ב-' : 'המטוס של הטיסה'}</span>
-                  <span style={{ fontSize: 17, fontWeight: 800 }}>{f.aircraft?.type ? `${AIRCRAFT[f.aircraft.type] || f.aircraft.type}${f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}` : (fs.departed ? 'לא הצלחנו לזהות את המטוס' : 'נזהה את המטוס בקרוב')}</span>
-                  <span style={{ fontSize: 14, fontWeight: f.aircraft?.type ? 700 : 400, color: f.aircraft?.type ? 'var(--coral-ink)' : '#6B3A2A', lineHeight: 1.5 }}>{f.aircraft?.type ? 'הכר את המטוס שלך ←' : fs.departed ? 'המטוס לא משדר זיהוי שאנחנו קולטים כרגע' : 'בדרך כלל כחצי שעה עד שעה לפני ההמראה, כשהמטוס מתחיל לשדר. אז יופיעו דגם, תמונה ותרשים מושבים'}</span>
-                  {!f.aircraft?.type && liveLoading && <PlaneLoader small text="מחפש את המטוס…" />}
-                </div>
-              </Tag>
-              );
-            })()}
-
-            {!fs.departed && f.aircraft?.registration && (inbound
-              ? <InboundCard f={f} inbound={inbound} now={now} />
-              : <section className="card"><h2>המטוס הגיע?</h2><PlaneLoader small text="בודק איפה המטוס עכשיו…" /></section>)}
-
-            <section className="card">
-              <h2>הזמנים</h2>
-              <div className="row"><span className="muted">{f.departure.estimatedByUs ? 'המראה משוערת (לפי המרחק, שעון מקומי)' : 'המראה מתוכננת'}</span><span className="strong">{approx(f.departure)}{hhmm(f.departure.estimated || f.departure.scheduled)}</span></div>
-              {f.source === 'iaa' && f.direction === 'departure' && !f.departure.actual && f.departure.delay > 0 && (
-                <div className="row"><span className="muted">שעה מעודכנת</span><span className="strong" style={{ color: 'var(--coral-ink)' }}>{hhmm(f.departure.estimated)} · איחור {f.departure.delay} דק׳</span></div>
-              )}
-              {f.departure.actual && (
-                <div className="row"><span className="muted">המראה בפועל</span><span className="strong" style={{ color: f.departure.delay > 0 ? 'var(--coral-ink)' : 'var(--good)' }}>{hhmm(f.departure.actual)}{f.departure.delay > 0 ? ` · איחור ${f.departure.delay} דק׳` : ''}</span></div>
-              )}
-              {!f.arrival.estimatedByUs && <div className="row"><span className="muted">נחיתה מתוכננת (שעון מקומי)</span><span className="strong">{hhmm(f.arrival.scheduled)}</span></div>}
-              <div className="row"><span className="muted">{f.arrival.actual ? 'נחיתה בפועל' : f.arrival.estimatedByUs ? 'נחיתה משוערת (לפי המרחק, שעון מקומי)' : 'נחיתה צפויה'}</span>
-                <span className="strong" style={{ color: 'var(--good)' }}>
-                  {approx(f.arrival)}{hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled)}
-                  {!f.arrival.actual && left > 0 ? ` · עוד ${minutesLabel(left)}` : ''}
-                  {early > 0 && !f.arrival.estimatedByUs ? ` · ${early} דק׳ מוקדם` : ''}
-                </span>
-              </div>
-              {f.arrival.terminal && <div className="row"><span className="muted">טרמינל נחיתה</span><span className="strong">{f.arrival.terminal}</span></div>}
-              <span className="small muted">{f.source === 'iaa' ? 'נתונים רשמיים מלוח נתב״ג של רשות שדות התעופה' : 'נתונים אמיתיים מ-Aviationstack'} · {agoLabel(now - Date.parse(f.fetchedAt))}</span>
-            </section>
           </>
         )}
       </div>
