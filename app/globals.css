@@ -276,3 +276,12 @@ button:disabled { opacity: 0.6; cursor: default; }
 
 /* ניווט ב-Waze */
 .waze-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 999px; background: #33CCFF; color: #0E2A47; font-size: 15px; font-weight: 800; text-decoration: none; }
+
+/* "בהרצה · דווח על בעיה" ליד הלוגו, וחלון הדיווח */
+.beta-chip { height: 30px; padding: 0 10px; border: 1.5px solid #FFB79E; border-radius: 999px; background: #FFF1EC; color: #7A2E14; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.sheet-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(14, 42, 71, 0.45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { width: 100%; max-width: 520px; background: #fff; border-radius: 24px 24px 0 0; padding: 18px 18px 28px; display: flex; flex-direction: column; gap: 12px; position: relative; }
+.sheet textarea { width: 100%; border: 2px solid #CFE6F7; border-radius: 14px; padding: 10px 12px; font-family: inherit; font-size: 16px; resize: vertical; box-sizing: border-box; }
+@media (min-width: 600px) { .sheet-bg { align-items: center; } .sheet { border-radius: 24px; } }
+.field > span { font-size: 13px; color: var(--muted); }
+@media (max-width: 420px) { .brand-tag { display: none; } }

@@ -1,3 +1,4 @@
+import ReportButton from './ReportButton';
 // הלוגו של כנף: זנב מטוס כתום על רקע שמיים, עם שמש
 export function LogoMark({ size = 34 }) {
   return (
@@ -21,7 +22,10 @@ export function BrandBar() {
         <LogoMark />
         <span>כנף</span>
       </a>
-      <span className="brand-tag">מלווה הטיסה שלך</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="brand-tag">מלווה הטיסה שלך</span>
+        <ReportButton />
+      </span>
     </div>
   );
 }

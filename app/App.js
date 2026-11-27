@@ -790,6 +790,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
         : [<LandedLead key="ll" f={f} now={now} />, destTeaser, pass, more([codeshareCard, timesCard, planeCard])],
       before: [leavePick, pass, more([inboundCard, planeCard, codeshareCard, timesCard])]
     };
+    if (typeof window !== 'undefined') window.__kanafCtx = { ...(window.__kanafCtx || {}), stage };
     stageView = (S[stage] || S.today).map((x, i) => <Fragment key={i}>{x}</Fragment>);
   }
 
@@ -1211,6 +1212,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState('flights');
+  // פרטים שמצורפים אוטומטית ל"דווח על בעיה"
+  useEffect(() => { window.__kanafCtx = { ...(window.__kanafCtx || {}), flight: flight?.flight || null, date: flight?.date || null, tab }; }, [flight, tab]);
   const [now, setNow] = useState(Date.now());
   const [adsb, setAdsb] = useState(null);
   const [estimate, setEstimate] = useState(null);
