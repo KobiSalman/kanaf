@@ -12,7 +12,8 @@ import { flightStage, boardingAt } from '../lib/stageLogic';
 import { mealInfo, MEAL_LABEL } from '../lib/mealLogic';
 import MEALS from '../data/meals.json';
 import { DestinationTeaser, DestinationTab } from './Destination';
-import { AIRCRAFT } from '../lib/aviation';
+import { AIRCRAFT, distanceKm } from '../lib/aviation';
+import { AIRPORTS } from '../lib/airports';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
 import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
 import AirlineLogo, { iataFromCallsign } from './AirlineLogo';
@@ -753,11 +754,32 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                 back={
                   <>
                     <div className="row">
-                      <span className="strong" style={{ fontSize: 17 }}>המטוס של הטיסה</span>
+                      <span className="strong" style={{ fontSize: 17 }}>פרטי הטיסה</span>
                       <AirlineLogo iata={airIata(f)} name={f.airline} size={26} />
                     </div>
-                    <span style={{ fontSize: 22, fontWeight: 800 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : 'עוד לא שובץ מטוס'}</span>
-                    {f.aircraft?.registration && <span className="muted">רישום: {f.aircraft.registration}</span>}
+                    {(() => {
+                      const depT = hhmm(f.departure.actual || f.departure.estimated || f.departure.scheduled);
+                      const arrT = hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled);
+                      const d0 = localToInstant(f.departure.actual || f.departure.estimated || f.departure.scheduled, f.departure.timezone || 'Asia/Jerusalem');
+                      const d1 = localToInstant(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled, f.arrival.timezone || 'Asia/Jerusalem');
+                      const dur = d0 && d1 && d1 > d0 ? Math.round((d1 - d0) / 60000) : null;
+                      const a = AIRPORTS[f.departure.iata], b = AIRPORTS[f.arrival.iata];
+                      const km = a && b ? Math.round(distanceKm(a[0], a[1], b[0], b[1]) / 10) * 10 : null;
+                      return (
+                        <div className="tiles" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                          <div className="tile"><span className="label">{f.departure.actual ? 'המריאה' : 'המראה'}{f.departure.estimatedByUs ? ' (הערכה)' : ''}</span><span className="value" style={{ fontSize: 19 }}>{depT || '—'}</span></div>
+                          <div className="tile"><span className="label">{f.arrival.actual ? 'נחתה' : 'נחיתה'}{f.arrival.estimatedByUs ? ' (הערכה)' : ''}</span><span className="value" style={{ fontSize: 19 }}>{arrT || '—'}</span></div>
+                          {dur ? <div className="tile"><span className="label">משך הטיסה</span><span className="value" style={{ fontSize: 19 }}>{minutesLabel(dur)}</span></div> : null}
+                          {km ? <div className="tile"><span className="label">מרחק</span><span className="value" style={{ fontSize: 19 }}>{km.toLocaleString('he-IL')} ק״מ</span></div> : null}
+                        </div>
+                      );
+                    })()}
+                    <span className="small muted" style={{ marginTop: -4 }}>השעות בשעון המקומי של כל שדה.</span>
+                    <div className="row" style={{ marginTop: 4 }}>
+                      <span className="strong">המטוס</span>
+                      <span style={{ fontWeight: 800 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : f.aircraft?.registration ? f.aircraft.registration : 'יזוהה כשהמטוס באוויר'}</span>
+                    </div>
+                    {f.aircraft?.type && f.aircraft?.registration && <span className="muted" style={{ marginTop: -6 }}>רישום: {f.aircraft.registration}</span>}
                     {typeInfo && (
                       <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
                         <div className="tile"><span className="label">אורך</span><span className="value" style={{ fontSize: 17 }}>{typeInfo.lengthM} מ׳</span></div>
