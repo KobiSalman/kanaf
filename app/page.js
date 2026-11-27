@@ -2,7 +2,7 @@ import App from './App';
 import { iaaFlight } from '../lib/iaa';
 import { delayStamp } from '../lib/flightLogic';
 
-const SITE = 'https://kanaf-seven.vercel.app';
+import { SITE } from '../lib/seo';
 const ogImage = (p) => ({ url: `/api/og${p ? '?' + new URLSearchParams(p) : ''}`, width: 1200, height: 630 });
 
 // כשמשתפים קישור לטיסה (?f=LY315&d=2026-11-25), וואטסאפ מציג כותרת ותיאור של הטיסה עצמה
