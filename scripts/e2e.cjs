@@ -82,6 +82,7 @@ async function run(viewport, label) {
       const c = await covered(page, '.hero h1, .hero p, .hero .pill');
       ok(`[${label}] לשונית ${tab}: נטענה, אין טקסט מכוסה`, !c.length, c.join(' | '));
       if (tab === 'מעליי') {
+        await page.locator('svg[role="img"]').or(page.getByText(/עמוס|לא הצלחנו/)).first().waitFor({ timeout: 15000 }).catch(() => {});
         const map = await page.locator('svg[role="img"]').count();
         const busy = await page.getByText(/עמוס|לא הצלחנו/).count();
         ok(`[${label}] מעליי: מפה או הודעה ברורה`, map > 0 || busy > 0, map ? 'מפה' : 'הודעת עומס');

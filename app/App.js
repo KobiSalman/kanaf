@@ -8,6 +8,8 @@ import InstallHint from './InstallHint';
 import NearbyMap from './NearbyMap';
 import DestinationPicker from './DestinationPicker';
 import { codeshareInfo, delayStamp } from '../lib/flightLogic';
+import { mealInfo, MEAL_LABEL } from '../lib/mealLogic';
+import MEALS from '../data/meals.json';
 import { DestinationTeaser, DestinationTab } from './Destination';
 import { AIRCRAFT } from '../lib/aviation';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
@@ -490,6 +492,28 @@ function ShareCard({ f }) {
   );
 }
 
+// "יש אוכל בטיסה?": לפי החברה שמפעילה בפועל (בשיתוף קוד זו לא בהכרח החברה שבכרטיס)
+function MealCard({ f }) {
+  const cs = codeshareInfo(f);
+  const op = cs ? cs.op : { iata: f.airlineIata, airline: f.airline };
+  const dep = localToInstant(f.departure.scheduled, f.departure.timezone || 'Asia/Jerusalem');
+  const arr = localToInstant(f.arrival.scheduled || f.arrival.estimated, f.arrival.timezone);
+  const dur = dep && arr && arr > dep ? Math.round((arr - dep) / 60000) : null;
+  const m = mealInfo(op.iata, dur);
+  if (!m) return null;
+  const tone = m.kind === 'included' ? 'good' : m.kind === 'paid' ? 'warn' : '';
+  return (
+    <section className="card" style={{ gap: 8 }}>
+      <div className="row">
+        <h2>🍽️ יש אוכל בטיסה?</h2>
+        <span className={`badge ${tone}`}>{MEAL_LABEL[m.kind]}{m.known ? '' : ' · בדרך כלל'}</span>
+      </div>
+      <span style={{ fontSize: 14, lineHeight: 1.55 }}>{cs && !cs.op.own ? `הטיסה מופעלת על ידי ${op.airline || op.iata}, ולכן המדיניות שלה קובעת. ` : ''}{m.text}</span>
+      <span className="small muted">צריכים ארוחה כשרה, צמחונית או ללא גלוטן? ברוב החברות מזמינים מראש באתר או באפליקציה, בדרך כלל עד 24–48 שעות לפני הטיסה. {MEALS.note}</span>
+    </section>
+  );
+}
+
 function CodeshareCard({ f }) {
   const c = codeshareInfo(f);
   if (!c) return null;
@@ -687,6 +711,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
             {f.arrival.iata === 'TLV' && f.status !== 'cancelled' && !/CANCEL/.test(f.statusEn || '') && <PickupCard f={f} now={now} />}
 
             <CodeshareCard f={f} />
+            <MealCard f={f} />
             <DestinationTeaser f={f} onOpen={goDest} />
 
             {f.source !== 'iaa' && !f.departure.gate && f.status === 'scheduled' && (
