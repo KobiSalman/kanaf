@@ -4,7 +4,7 @@ import { board, flightCode, SITE } from '../lib/seo';
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap() {
-  const base = [{ url: SITE, changeFrequency: 'daily', priority: 1 }, { url: `${SITE}/terms`, changeFrequency: 'monthly', priority: 0.2 }];
+  const base = [{ url: SITE, changeFrequency: 'daily', priority: 1 }, { url: `${SITE}/terms`, changeFrequency: 'monthly', priority: 0.2 }, { url: `${SITE}/accessibility`, changeFrequency: 'monthly', priority: 0.2 }];
   let rows = [];
   try { rows = await board(); } catch { return base; }
   const locs = [...new Set(rows.map((r) => r.loc).filter(Boolean))];

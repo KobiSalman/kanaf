@@ -66,7 +66,7 @@ export default async function DestPage({ params }) {
           <List items={d.arrivals} />
         </section>
         <Link href="/" style={{ color: 'var(--coral-ink)', fontWeight: 700 }}>לחיפוש טיסה בכנף ←</Link>
-        <p className="small muted" style={{ margin: 0 }}>הנתונים מלוח הטיסות של רשות שדות התעופה (data.gov.il) ומתעדכנים כל כמה דקות.</p>
+        <p className="small muted" style={{ margin: 0 }}>הנתונים מלוח הטיסות של רשות שדות התעופה (data.gov.il) ומתעדכנים כל כמה דקות. המידע אינו רשמי, והשימוש בו באחריות המשתמש בלבד. <Link href="/terms" style={{ color: 'inherit' }}>תנאי שימוש</Link></p>
       </main>
     </>
   );

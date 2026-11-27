@@ -55,7 +55,7 @@ export default async function FlightPage({ params }) {
           במעקב החי בכנף רואים איפה המטוס עכשיו, {dep ? 'מתי להגיע לשדה ומה כדאי לדעת על ' + r.city : 'מתי לבוא לאסוף ומתי הנוסעים יוצאים מהטרמינל'}.
         </p>
         <Link href={`/to/${r.loc}`} style={{ color: 'var(--coral-ink)', fontWeight: 700 }}>כל הטיסות {dep ? 'ל' : 'מ'}{r.city} ←</Link>
-        <p className="small muted" style={{ margin: 0 }}>הנתונים מלוח הטיסות של רשות שדות התעופה (data.gov.il) ומתעדכנים כל כמה דקות. השעה הקובעת היא זו שבכרטיס ובהודעות של חברת התעופה.</p>
+        <p className="small muted" style={{ margin: 0 }}>הנתונים מלוח הטיסות של רשות שדות התעופה (data.gov.il) ומתעדכנים כל כמה דקות. המידע אינו רשמי, והשימוש בו באחריות המשתמש בלבד. <Link href="/terms" style={{ color: 'inherit' }}>תנאי שימוש</Link> השעה הקובעת היא זו שבכרטיס ובהודעות של חברת התעופה.</p>
       </main>
     </>
   );

@@ -448,7 +448,7 @@ function BoardTab({ now, onOpen }) {
               return (
                 <button key={`${r.op}${r.fn}${r.stol}`} type="button" onClick={() => onOpen(`${r.op}${r.no ?? r.fn}`, r.stol.slice(0, 10))}
                   style={{ display: 'grid', gridTemplateColumns: '58px 1fr auto', gap: 10, alignItems: 'center', padding: '10px 8px', border: 'none',
-                    borderBottom: '1px solid #EAF1F7', background: 'none', textAlign: 'right', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', opacity: past ? 0.6 : 1 }}>
+                    borderBottom: '1px solid #EAF1F7', textAlign: 'right', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', background: past ? '#F1F5F9' : 'none' }}>
                   <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                     <span style={{ fontWeight: 800, textDecoration: late ? 'line-through' : 'none', color: late ? 'var(--muted)' : 'var(--ink)', fontSize: late ? 13 : 17 }}>{r.stol.slice(11, 16)}</span>
                     {late && <span style={{ fontSize: 17, fontWeight: 800, color: r.ptol > r.stol ? 'var(--coral-ink)' : 'var(--good)' }}>{r.ptol.slice(11, 16)}</span>}
@@ -1384,7 +1384,7 @@ export default function App() {
       {tab === 'dest' && <DestinationTab f={view} back={() => setTab('flights')} />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} inbound={inbound} now={now} />}
 
-      <p className="small muted" style={{ textAlign: 'center', margin: '20px 0 0' }}><a href="/terms" style={{ color: 'inherit' }}>תנאי שימוש ופרטיות</a> · המידע ממקורות ציבוריים ואינו רשמי</p>
+      <p className="small muted" style={{ textAlign: 'center', margin: '20px 0 0' }}><a href="/terms" style={{ color: 'inherit' }}>תנאי שימוש ופרטיות</a> · <a href="/accessibility" style={{ color: 'inherit' }}>הצהרת נגישות</a><br />המידע ממקורות ציבוריים ואינו רשמי. השימוש בו באחריות המשתמש בלבד.</p>
 
       <nav className="nav" aria-label="ניווט ראשי">
         <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon /></span>טיסות</button>
