@@ -79,7 +79,8 @@ export function LeaveHomeCard({ f, now }) {
   return <TimerCard title="מתי להיות בשדה?" label="יש להיות בנתב״ג עד השעה" target={target} doneText="הגיע הזמן להיות בשדה!" />;
 }
 
-const WAZE_T3_ARRIVALS = 'https://waze.com/ul/hsv8y13rtq';
+// ניווט ב-Waze ל"טרמינל 3 שער 32": היציאה של הנוחתים. נקודה על דרך הנוחתים, כדי ש-Waze לא ינווט לדרך הממריאים שמעליה
+const WAZE_T3_ARRIVALS = 'https://waze.com/ul/hsv8y192n0';
 
 // ---------- טיסה שנוחתת בנתב״ג: מתי להיות בשדה כדי לאסוף ----------
 export function PickupCard({ f, now }) {
@@ -91,9 +92,9 @@ export function PickupCard({ f, now }) {
   // ניווט ב-Waze ישר לאזור הנחיתות של טרמינל 3 (רק כשהטיסה נוחתת בטרמינל 3 או שהטרמינל לא ידוע)
   const t3 = !f.arrival.terminal || String(f.arrival.terminal) === '3';
   const waze = t3 ? (
-    <a href={WAZE_T3_ARRIVALS} target="_blank" rel="noopener noreferrer" className="waze-btn" aria-label="ניווט ב-Waze לנמל התעופה בן גוריון, טרמינל 3 נחיתות">
+    <a href={WAZE_T3_ARRIVALS} target="_blank" rel="noopener noreferrer" className="waze-btn" aria-label="ניווט ב-Waze לנמל התעופה בן גוריון, טרמינל 3 נחיתות, שער 32">
       <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2.5c-5 0-9 3.6-9 8.3 0 2 .7 3.6 1.7 4.8-.3 1.1-1 2-2 2.6 1.6.4 3.3 0 4.6-1 1.4.7 3 1.1 4.7 1.1 5 0 9-3.6 9-8.3s-4-7.5-9-7.5z" /><circle cx="9" cy="10" r="1.2" fill="#0E2A47" /><circle cx="15" cy="10" r="1.2" fill="#0E2A47" /><path d="M8.8 13.2c1.6 1.6 4.8 1.6 6.4 0" stroke="#0E2A47" strokeWidth="1.4" fill="none" strokeLinecap="round" /><circle cx="8" cy="19.5" r="1.8" fill="#0E2A47" /><circle cx="16" cy="19.5" r="1.8" fill="#0E2A47" /></svg>
-      <span>ניווט לטרמינל 3, נחיתות</span>
+      <span>ניווט לטרמינל 3, נחיתות (שער 32)</span>
     </a>
   ) : null;
   return <TimerCard title="באים לאסוף?" label="יש להיות בנתב״ג בשעה" target={target} doneText="הנוסע יוצא עכשיו" extra={waze} />;
