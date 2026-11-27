@@ -2,7 +2,9 @@ import './globals.css';
 
 export const metadata = {
   title: 'כנף · מלווה טיסה',
-  description: 'כל המידע על הטיסה שלך, לפני ובזמן הטיסה'
+  description: 'כל המידע על הטיסה שלך, לפני ובזמן הטיסה',
+  // באייפון, אחרי "הוסף למסך הבית": נפתח במסך מלא, עם השם כנף
+  appleWebApp: { capable: true, title: 'כנף', statusBarStyle: 'default' }
 };
 
 export const viewport = {

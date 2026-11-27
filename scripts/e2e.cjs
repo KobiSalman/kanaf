@@ -94,7 +94,7 @@ async function run(viewport, label) {
     await page.getByRole('button', { name: /שנה טיסה/ }).click();
     await page.getByRole('button', { name: 'יש לי מספר טיסה' }).click();
     await page.fill('#flightNo', 'LY315');
-    await page.fill('#flightDate', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(Date.now() + 864e5));
+    await page.fill('#flightDate', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(Date.now()));
     await page.getByRole('button', { name: 'חפש טיסה' }).click();
     await page.getByText('LY315').first().waitFor({ timeout: 20000 });
     ok(`[${label}] חיפוש לפי מספר טיסה (LY315)`, true);

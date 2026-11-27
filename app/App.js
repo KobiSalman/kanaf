@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { hhmm, localToInstant, todayIn, minutesLabel, agoLabel } from '../lib/time';
 import { LeaveHomeCard, PickupCard, CrowdForecast } from './airport';
 import { BrandBar } from './Logo';
+import InstallHint from './InstallHint';
 import NearbyMap from './NearbyMap';
 import DestinationPicker from './DestinationPicker';
 import { codeshareInfo, delayStamp } from '../lib/flightLogic';
@@ -515,7 +516,7 @@ function CodeshareCard({ f }) {
   );
 }
 
-function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, goDest, inbound, goStatus, goLive, loading, liveLoading }) {
+function FlightsTab({ f, now, editing, setEditing, search, error, changes, clearChanges, goAircraft, goDest, inbound, goStatus, goLive, loading, liveLoading }) {
   const hasFlight = !!f;
   const st = hasFlight ? statusOf(f) : null;
   const fs = hasFlight ? flightState(f) : null;
@@ -611,6 +612,15 @@ function FlightsTab({ f, now, editing, setEditing, search, error, goAircraft, go
               </div>
             )}
             <AirlineAlert f={f} goStatus={goStatus} />
+            {changes && (
+              <section className="card change-alert" role="status">
+                <div className="row">
+                  <span className="strong">🔔 עדכון חדש מנתב״ג</span>
+                  <button type="button" onClick={clearChanges} aria-label="סגור" style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'inherit' }}>✕</button>
+                </div>
+                {changes.items.map((x) => <span key={x} style={{ fontSize: 15, fontWeight: 700 }}>{x}</span>)}
+              </section>
+            )}
             <BoardingPass
               stamp={stamp}
               seed={`${f.flight}${f.date}`}
@@ -1066,6 +1076,7 @@ export default function App() {
   const [flightNo, setFlightNo] = useState('');
   const [date, setDate] = useState('');
   const [flight, setFlight] = useState(null);
+  const loadedAt = useRef(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -1082,7 +1093,15 @@ export default function App() {
       const res = await fetch(`/api/flight?flight=${encodeURIComponent(no)}&date=${encodeURIComponent(d)}`);
       const body = await res.json();
       if (!res.ok) { setError(body.error || 'משהו השתבש'); }
-      else { setFlight(body); setEditing(false); }
+      else {
+        setFlight(body); setEditing(false); setChanges(null); loadedAt.current = Date.now();
+        // חיפושים אחרונים: עד 3 טיסות, נשמרות רק בטלפון
+        try {
+          const label = `${body.flight}${body.arrival?.iata && body.arrival.iata !== 'TLV' ? ` · ${body.arrival.cityHe || body.arrival.iata}` : body.departure?.cityHe ? ` · מ${body.departure.cityHe}` : ''}`;
+          const list = JSON.parse(localStorage.getItem('kanaf:recent') || '[]').filter((x) => !(x.no === no && x.d === d));
+          localStorage.setItem('kanaf:recent', JSON.stringify([{ no, d, label }, ...list].slice(0, 3)));
+        } catch {}
+      }
     } catch {
       setError('אין חיבור לאינטרנט');
     }
@@ -1105,6 +1124,28 @@ export default function App() {
     const id = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(id);
   }, [search]);
+
+  // רענון שקט של פרטי הטיסה כל 3 דקות (דלפקים, טרמינל, שעות), עד הנחיתה. כשמשהו חשוב משתנה, מציגים הודעה
+  const [changes, setChanges] = useState(null);
+  usePolling(async (stopped) => {
+    if (!flight || flight.liveOnly || flight.arrival?.actual || Date.now() - loadedAt.current < 60000) return true;
+    try {
+      const res = await fetch(`/api/flight?flight=${encodeURIComponent(flight.flight)}&date=${encodeURIComponent(flight.date)}`);
+      if (!res.ok) return false;
+      const body = await res.json();
+      if (stopped() || body.flight !== flight.flight) return true;
+      const diff = [];
+      const cin = (x) => [x.departure?.checkin, x.departure?.checkinZone].filter(Boolean).join(' · אזור ');
+      if (cin(body) && cin(body) !== cin(flight)) diff.push(`דלפקי הצ׳ק-אין עכשיו: ${cin(body)}`);
+      if (body.departure?.terminal && body.departure.terminal !== flight.departure?.terminal) diff.push(`טרמינל ${body.departure.terminal}`);
+      const t = (x) => x.departure?.estimated || x.departure?.scheduled;
+      if (t(body) && t(flight) && t(body) !== t(flight)) diff.push(`שעת ההמראה עכשיו ${hhmm(t(body))}`);
+      if (body.statusEn !== flight.statusEn && /CANCEL/.test(body.statusEn || '')) diff.push('הטיסה בוטלה');
+      setFlight(body);
+      if (diff.length) setChanges({ at: Date.now(), items: diff });
+    } catch { return false; }
+    return true;
+  }, 180000, [flight?.flight, flight?.date]);
 
   // מיקום חי בזמן אמת מ-adsb.lol, כל 15 שניות כשהדף פתוח
   const altCallsign = useRef(null);
@@ -1189,17 +1230,20 @@ export default function App() {
       : flight;
 
   const searchCard = (
+    <>
     <DestinationPicker
       onPick={(no, d) => { setFlightNo(no); setDate(d); setEditing(false); search(no, d); }}
       onCancel={flight ? () => setEditing(false) : null}
       numberSearch={<SearchCard flightNo={flightNo} setFlightNo={setFlightNo} date={date} setDate={setDate} loading={loading}
         onSearch={() => search(flightNo, date)} onCancel={flight ? () => setEditing(false) : null} />} />
+    {!flight && <InstallHint />}
+    </>
   );
 
   return (
     <main className="app">
       <BrandBar />
-      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} goAircraft={() => setTab('aircraft')} goDest={() => { setTab('dest'); window.scrollTo(0, 0); }} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
+      {tab === 'flights' && <FlightsTab f={view} now={now} editing={editing} setEditing={setEditing} search={searchCard} error={error} changes={changes} clearChanges={() => setChanges(null)} goAircraft={() => setTab('aircraft')} goDest={() => { setTab('dest'); window.scrollTo(0, 0); }} inbound={inbound} goStatus={() => setTab('status')} goLive={() => setTab('live')} loading={loading} liveLoading={liveLoading} />}
       {tab === 'live' && <LiveTab f={view} now={now} liveLoading={liveLoading} loading={loading} onRefresh={() => search(flightNo, date)} />}
       {tab === 'nearby' && <NearbyTab now={now} />}
       {tab === 'status' && <StatusTab />}

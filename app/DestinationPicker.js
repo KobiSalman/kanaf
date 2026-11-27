@@ -33,6 +33,16 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
   const [q, setQ] = useState('');
   const [dest, setDest] = useState(null);
   const [flights, setFlights] = useState(null);
+  const [recent, setRecent] = useState([]);
+
+  // חיפושים אחרונים (נשמרים רק בטלפון): טיסות שהתאריך שלהן לא עבר
+  useEffect(() => {
+    try {
+      const fmt = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(ms);
+      const yesterday = fmt(Date.now() - 864e5);
+      setRecent(JSON.parse(localStorage.getItem('kanaf:recent') || '[]').filter((x) => x.no && x.d >= yesterday));
+    } catch {}
+  }, []);
 
   useEffect(() => {
     fetch('/api/destinations').then((r) => r.json().then((b) => (r.ok ? setDests(b.destinations) : setError(b.error || 'משהו השתבש'))))
@@ -113,6 +123,18 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
 
   return (
     <section className="card big edit" style={{ gap: 12 }}>
+      {recent.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span className="small muted">חיפושים אחרונים</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {recent.map((x) => (
+              <button key={x.no + x.d} type="button" onClick={() => onPick(x.no, x.d)} className="recent-chip">
+                ✈️ {x.label || x.no} <span className="muted" style={{ fontWeight: 500 }}>· {x.d.slice(8, 10)}/{x.d.slice(5, 7)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="field">
         <label htmlFor="destSearch">עיר או מדינה</label>
         <input id="destSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="לדוגמה: בנגקוק, יוון, London" autoComplete="off"

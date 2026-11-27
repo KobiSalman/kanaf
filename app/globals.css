@@ -246,3 +246,9 @@ button:disabled { opacity: 0.6; cursor: default; }
 .snack { display: flex; align-items: center; gap: 12px; }
 .snack-icon { width: 42px; height: 42px; flex: none; border-radius: 14px; background: #fff; box-shadow: 0 4px 12px rgba(14, 42, 71, 0.08); display: flex; align-items: center; justify-content: center; font-size: 22px; }
 .food-chip { background: #fff; border: 1.5px solid #FFD9C9; color: var(--ink); border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
+
+/* הודעה על שינוי בטיסה (דלפקים, טרמינל, שעה) */
+.change-alert { background: #FFF3C4; border: 2px solid #FFC93C; gap: 4px; animation: pop-in 0.35s ease both; }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.recent-chip { border: 1.5px solid #CFE6F7; background: #fff; color: var(--ink); border-radius: 999px; padding: 7px 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.install-hint { background: #E8F6FF; border: 1.5px solid #B9DDF4; gap: 6px; }
