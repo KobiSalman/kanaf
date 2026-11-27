@@ -269,3 +269,10 @@ button:disabled { opacity: 0.6; cursor: default; }
 .seg { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--ground); }
 .seg button { flex: 1; height: 40px; border: none; border-radius: 11px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--ink); cursor: pointer; }
 .seg button.on { background: #fff; box-shadow: 0 2px 6px rgba(14, 42, 71, 0.12); }
+
+/* שיתוף קוד בתוך כרטיס הטיסה: מודגש */
+.cs-callout { display: block; margin-top: -4px; padding: 10px 12px; border-radius: 14px; background: #FFE9E1; border: 2px solid #FFB79E; color: #7A2E14; font-size: 14px; font-weight: 600; line-height: 1.55; text-align: right; }
+.cs-callout b { font-weight: 800; color: #5A1E08; }
+
+/* ניווט ב-Waze */
+.waze-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 999px; background: #33CCFF; color: #0E2A47; font-size: 15px; font-weight: 800; text-decoration: none; }

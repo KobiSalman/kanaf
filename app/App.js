@@ -628,7 +628,11 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
   let stageView = null;
   if (hasFlight && !f.liveOnly) {
     const cs = codeshareInfo(f);
-    const csLine = cs ? (cs.op.own ? `נמכרת גם בתור ${cs.others.map((x) => x.flight).join(', ')}` : `מופעלת על ידי ${cs.op.airline || cs.op.iata} (${cs.op.flight})`) : null;
+    // שיתוף קוד: מי שקנה כרטיס של חברה אחת יכול לטוס בפועל בחברה אחרת. זה חשוב, אז מודגש
+    const opName = cs ? (cs.op.airline || cs.op.iata) : null;
+    const csLine = cs ? (cs.op.own
+      ? <>טיסה משותפת: מי שקנה כרטיס {cs.others.map((x, i) => <Fragment key={x.flight}>{i ? ' או ' : ''}<bdi><b>{x.flight}</b></bdi></Fragment>)} טס בטיסה הזו, ב<b>{opName}</b>.</>
+      : <>טיסה משותפת: הכרטיס של {f.airline || f.flight}, אבל בפועל טסים ב<b>{opName}</b> (<bdi>{cs.op.flight}</bdi>). הצ׳ק-אין, הדלפקים והמטוס של {opName}.</>) : null;
     const cancelled = f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '');
     const arrivingTLV = f.arrival.iata === 'TLV';
     const leavePick = (
@@ -742,7 +746,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                       <div className="tile"><span className="label">עלייה*</span><span className="value">{(!f.departure.estimatedByUs && boarding) || '—'}</span></div>
                     </div>
                     {f.departure.checkin && <span className="strong" style={{ fontSize: 14, marginTop: -6 }}>דלפקי צ׳ק-אין: {f.departure.checkin}{f.departure.checkinZone ? ` · אזור ${f.departure.checkinZone}` : ''}</span>}
-                    {csLine && <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)', marginTop: -6 }}>✈ {csLine}</span>}
+                    {csLine && <span className="cs-callout">✈️ {csLine}</span>}
                     <span className="small muted" style={{ marginTop: -8 }}>* שעת עלייה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.{(f.departure.estimatedByUs || f.arrival.estimatedByUs) ? ' שעת הנחיתה ביעד היא הערכה שלנו לפי המרחק.' : ''}</span>
                   </>
                 }

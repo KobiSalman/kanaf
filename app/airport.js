@@ -43,7 +43,7 @@ function useTick() {
   return t;
 }
 
-function TimerCard({ title, label, target, doneText }) {
+function TimerCard({ title, label, target, doneText, extra }) {
   const now = useTick();
   const left = Math.max(0, Math.floor((target - now) / 1000));
   const parts = [Math.floor(left / 3600), Math.floor((left % 3600) / 60), left % 60];
@@ -65,6 +65,7 @@ function TimerCard({ title, label, target, doneText }) {
         <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--coral-ink)' }}>{doneText}</span>
       )}
       <span style={{ fontSize: 17 }}>{label} <b>{clockIL(target)}</b></span>
+      {extra}
     </section>
   );
 }
@@ -75,8 +76,10 @@ export function LeaveHomeCard({ f, now }) {
   const dep = localToInstant(f.departure.estimated || f.departure.scheduled, f.departure.timezone || 'Asia/Jerusalem');
   if (!dep || dep < now || dep - now > 36 * HOUR) return null;
   const target = leaveTarget(f, dep, crowd);
-  return <TimerCard title="מתי להיות בשדה?" label="להיות בנתב״ג עד השעה" target={target} doneText="הגיע הזמן להיות בשדה!" />;
+  return <TimerCard title="מתי להיות בשדה?" label="יש להיות בנתב״ג עד השעה" target={target} doneText="הגיע הזמן להיות בשדה!" />;
 }
+
+const WAZE_T3_ARRIVALS = 'https://waze.com/ul/hsv8y13rtq';
 
 // ---------- טיסה שנוחתת בנתב״ג: מתי להיות בשדה כדי לאסוף ----------
 export function PickupCard({ f, now }) {
@@ -85,7 +88,15 @@ export function PickupCard({ f, now }) {
   if (!land) return null;
   const target = pickupTarget(land, crowd);
   if (now > target + 30 * MIN || target - now > 36 * HOUR) return null;
-  return <TimerCard title="באים לאסוף?" label="להיות בנתב״ג בשעה" target={target} doneText="הנוסע יוצא עכשיו" />;
+  // ניווט ב-Waze ישר לאזור הנחיתות של טרמינל 3 (רק כשהטיסה נוחתת בטרמינל 3 או שהטרמינל לא ידוע)
+  const t3 = !f.arrival.terminal || String(f.arrival.terminal) === '3';
+  const waze = t3 ? (
+    <a href={WAZE_T3_ARRIVALS} target="_blank" rel="noopener noreferrer" className="waze-btn" aria-label="ניווט ב-Waze לנמל התעופה בן גוריון, טרמינל 3 נחיתות">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2.5c-5 0-9 3.6-9 8.3 0 2 .7 3.6 1.7 4.8-.3 1.1-1 2-2 2.6 1.6.4 3.3 0 4.6-1 1.4.7 3 1.1 4.7 1.1 5 0 9-3.6 9-8.3s-4-7.5-9-7.5z" /><circle cx="9" cy="10" r="1.2" fill="#0E2A47" /><circle cx="15" cy="10" r="1.2" fill="#0E2A47" /><path d="M8.8 13.2c1.6 1.6 4.8 1.6 6.4 0" stroke="#0E2A47" strokeWidth="1.4" fill="none" strokeLinecap="round" /><circle cx="8" cy="19.5" r="1.8" fill="#0E2A47" /><circle cx="16" cy="19.5" r="1.8" fill="#0E2A47" /></svg>
+      <span>ניווט לטרמינל 3, נחיתות</span>
+    </a>
+  ) : null;
+  return <TimerCard title="באים לאסוף?" label="יש להיות בנתב״ג בשעה" target={target} doneText="הנוסע יוצא עכשיו" extra={waze} />;
 }
 
 // ---------- עומס בצ׳ק-אין ל-12 השעות הקרובות (בלשונית "לוח") ----------
