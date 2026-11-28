@@ -1,4 +1,7 @@
+'use client';
 import ReportButton from './ReportButton';
+import LangSwitch from './LangSwitch';
+import { useT } from './i18n';
 // הלוגו של כנף: זנב מטוס כתום על רקע שמיים, עם שמש
 export function LogoMark({ size = 34 }) {
   return (
@@ -16,15 +19,17 @@ export function LogoMark({ size = 34 }) {
 }
 
 export function BrandBar() {
+  const tr = useT();
   return (
     <div className="brand">
-      <a href="/" className="brand-name" aria-label="כנף, לדף הבית">
+      <a href={tr.href('/')} className="brand-name" aria-label={tr('כנף, לדף הבית')}>
         <LogoMark />
-        <span>כנף</span>
+        <span>{tr('כנף')}</span>
       </a>
       <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className="brand-tag">מלווה הטיסה שלך</span>
+        <span className="brand-tag">{tr('מלווה הטיסה שלך')}</span>
         <ReportButton />
+        <LangSwitch />
       </span>
     </div>
   );

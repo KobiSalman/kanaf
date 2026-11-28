@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { rateLimited, noStore } from '../../../lib/cache';
+import { tOf } from '../../../lib/i18nServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,22 +8,23 @@ export const dynamic = 'force-dynamic';
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, n);
 
 export async function POST(request) {
+  const t = tOf(request);
   const key = process.env.RESEND_API_KEY, to = process.env.REPORT_TO_EMAIL;
-  if (!key || !to) return NextResponse.json({ error: 'שליחת דיווחים עוד לא הוגדרה.' }, { status: 503, headers: noStore });
+  if (!key || !to) return NextResponse.json({ error: t('שליחת דיווחים עוד לא הוגדרה.') }, { status: 503, headers: noStore });
 
   let body;
-  try { body = await request.json(); } catch { return NextResponse.json({ error: 'בקשה לא תקינה' }, { status: 400, headers: noStore }); }
+  try { body = await request.json(); } catch { return NextResponse.json({ error: t('בקשה לא תקינה') }, { status: 400, headers: noStore }); }
   // מלכודת לבוטים: שדה נסתר שאדם לא ממלא
   if (body.website) return NextResponse.json({ ok: true }, { headers: noStore });
 
   const message = clip(body.message, 2000);
-  if (message.length < 3) return NextResponse.json({ error: 'כתבו מה לא עבד' }, { status: 400, headers: noStore });
+  if (message.length < 3) return NextResponse.json({ error: t('כתבו מה לא עבד') }, { status: 400, headers: noStore });
   const email = clip(body.email, 120);
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 
   const ip = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
   if (await rateLimited(`report:${ip}`, 5, 3600)) {
-    return NextResponse.json({ error: 'שלחת כבר כמה דיווחים בשעה האחרונה. אפשר לנסות שוב מאוחר יותר.' }, { status: 429, headers: noStore });
+    return NextResponse.json({ error: t('שלחת כבר כמה דיווחים בשעה האחרונה. אפשר לנסות שוב מאוחר יותר.') }, { status: 429, headers: noStore });
   }
 
   const ctx = body.context && typeof body.context === 'object' ? body.context : {};
@@ -33,7 +35,8 @@ export async function POST(request) {
     `לשונית: ${clip(ctx.tab, 20) || '—'} · שלב: ${clip(ctx.stage, 20) || '—'}`,
     `כתובת: ${clip(ctx.url, 300) || '—'}`,
     `מכשיר: ${clip(request.headers.get('user-agent'), 300)}`,
-    `זמן: ${new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
+    `זמן: ${new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`,
+    `שפה: ${t.lang}`
   ];
   const subject = `כנף · דיווח${ctx.flight ? ` על ${clip(ctx.flight, 12)}` : ''}: ${message.slice(0, 50).replace(/\s+/g, ' ')}`;
 
@@ -46,7 +49,7 @@ export async function POST(request) {
     });
     if (!res.ok) throw new Error(`resend ${res.status}`);
   } catch {
-    return NextResponse.json({ error: 'לא הצלחנו לשלוח כרגע. נסו שוב בעוד כמה דקות.' }, { status: 502, headers: noStore });
+    return NextResponse.json({ error: t('לא הצלחנו לשלוח כרגע. נסו שוב בעוד כמה דקות.') }, { status: 502, headers: noStore });
   }
   return NextResponse.json({ ok: true }, { headers: noStore });
 }

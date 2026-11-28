@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { LAND } from '../lib/israelLand';
-import { AIRCRAFT } from '../lib/aviation';
+import { aircraftName } from '../lib/aviation';
+import { useT } from './i18n';
 
 // מפה קבועה של האזור: קו החוף, ערים, העיגול שבו אנחנו מחפשים מטוסים, והמטוסים עצמם לפי המיקום והכיוון שלהם
 const CITIES = [
@@ -13,6 +14,7 @@ const AIRPORTS = [['נתב״ג', 32.011, 34.887], ['רמון', 29.724, 35.011]];
 const SIZE = 360, KM_DEG = 111.32;
 
 export default function NearbyMap({ center, radiusKm, planes }) {
+  const tr = useT();
   const half = radiusKm * 2; // המפה מראה פי 4 מהרדיוס, כדי לראות את הסביבה ולא רק את העיגול
   const s = SIZE / (half * 2);
   const cos = Math.cos((center.lat * Math.PI) / 180);
@@ -33,7 +35,7 @@ export default function NearbyMap({ center, radiusKm, planes }) {
   return (
     <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{ position: 'relative' }}>
-      <svg onClick={() => setPinned(null)} viewBox={`0 0 ${SIZE} ${SIZE}`} width="100%" role="img" aria-label={`מפה של ${flying.length} מטוסים ברדיוס ${radiusKm} ק״מ ממך`} style={{ display: 'block', background: '#9ED8F7', direction: 'ltr' }}>
+      <svg onClick={() => setPinned(null)} viewBox={`0 0 ${SIZE} ${SIZE}`} width="100%" role="img" aria-label={tr('מפה של {n} מטוסים ברדיוס {km} ק״מ ממך', { n: flying.length, km: radiusKm })} style={{ display: 'block', background: '#9ED8F7', direction: 'ltr' }}>
         <path d={land} fill="#F3EBD3" stroke="#D9CBA3" strokeWidth="1" />
         <circle cx={SIZE / 2} cy={SIZE / 2} r={r} fill="rgba(255,122,89,0.10)" stroke="#FF7A59" strokeWidth="1.5" strokeDasharray="5 4" />
         {CITIES.map(([name, lat, lon]) => {
@@ -42,7 +44,7 @@ export default function NearbyMap({ center, radiusKm, planes }) {
           return (
             <g key={name}>
               <circle cx={p[0]} cy={p[1]} r="2.5" fill="#4A6380" />
-              <text x={p[0] - 5} y={p[1] + 4} fontSize="11" fill="#4A6380" textAnchor="end" fontFamily="Rubik, system-ui">{name}</text>
+              <text x={p[0] - 5} y={p[1] + 4} fontSize="11" fill="#4A6380" textAnchor="end" fontFamily="Rubik, system-ui">{tr.raw(name)}</text>
             </g>
           );
         })}
@@ -52,7 +54,7 @@ export default function NearbyMap({ center, radiusKm, planes }) {
           return (
             <g key={name}>
               <rect x={p[0] - 4} y={p[1] - 4} width="8" height="8" rx="2" fill="#0E2A47" />
-              <text x={p[0] + 7} y={p[1] + 4} fontSize="11" fontWeight="700" fill="#0E2A47" fontFamily="Rubik, system-ui">{name}</text>
+              <text x={p[0] + 7} y={p[1] + 4} fontSize="11" fontWeight="700" fill="#0E2A47" fontFamily="Rubik, system-ui">{tr.raw(name)}</text>
             </g>
           );
         })}
@@ -64,7 +66,7 @@ export default function NearbyMap({ center, radiusKm, planes }) {
           if (!inside([x, y])) return null;
           return (
             <g key={p.id} transform={`translate(${x.toFixed(1)},${y.toFixed(1)})`} style={{ cursor: 'pointer', outline: 'none' }}
-              role="button" tabIndex={0} aria-label={`${p.callsign || 'מטוס'}${p.route ? `, מ${p.route.from.city} ל${p.route.to.city}` : ''}`}
+              role="button" tabIndex={0} aria-label={p.route ? tr('{name}, מ{from} ל{to}', { name: p.callsign || tr('מטוס'), from: p.route.from.city, to: p.route.to.city }) : p.callsign || tr('מטוס')}
               onClick={(e) => { e.stopPropagation(); setPinned(pinned === p.id ? null : p.id); }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPinned(pinned === p.id ? null : p.id); } }}
               onMouseEnter={() => setHover(p.id)} onMouseLeave={() => setHover(null)}>
@@ -90,21 +92,21 @@ export default function NearbyMap({ center, radiusKm, planes }) {
           <div role="status" style={{ position: 'absolute', left: `${left}%`, top: `${(selXY[1] / SIZE) * 100}%`,
             transform: `translate(-50%, ${below ? '22px' : 'calc(-100% - 22px)'})`, background: '#fff', borderRadius: 14,
             boxShadow: '0 8px 24px rgba(14,42,71,0.25)', padding: '8px 12px', minWidth: 170, maxWidth: 260, whiteSpace: 'nowrap', pointerEvents: 'none',
-            display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'right' }}>
-            <span style={{ fontWeight: 800, fontSize: 15 }}>{sel.callsign || sel.registration || 'ללא זיהוי'}{sel.airline ? <span style={{ fontWeight: 500, color: 'var(--muted)', fontSize: 13 }}> · {sel.airline}</span> : null}</span>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{sel.route ? `${sel.route.from.city} ← ${sel.route.to.city}` : 'מסלול לא ידוע'}</span>
+            display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'start' }}>
+            <span style={{ fontWeight: 800, fontSize: 15 }}>{sel.callsign || sel.registration || tr('ללא זיהוי')}{sel.airline ? <span style={{ fontWeight: 500, color: 'var(--muted)', fontSize: 13 }}> · {sel.airline}</span> : null}</span>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>{sel.route ? `${sel.route.from.city} ${tr.dir === 'rtl' ? '←' : '→'} ${sel.route.to.city}` : tr('מסלול לא ידוע')}</span>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              {sel.type ? <><bdi>{AIRCRAFT[sel.type] || sel.type}</bdi> · </> : ''}{sel.altFt.toLocaleString('en-US')} רגל{sel.verticalFpm > 300 ? ' · מטפס' : sel.verticalFpm < -300 ? ' · יורד' : ''}
+              {sel.type ? <><bdi>{aircraftName(sel.type, tr)}</bdi> · </> : ''}{tr('{ft} רגל', { ft: sel.altFt.toLocaleString('en-US') })}{sel.verticalFpm > 300 ? ` · ${tr('מטפס')}` : sel.verticalFpm < -300 ? ` · ${tr('יורד')}` : ''}
             </span>
           </div>
         );
       })()}
       </div>
       <div className="row" style={{ padding: '8px 14px', fontSize: 12, color: 'var(--muted)' }}>
-        <span><span style={{ color: '#2E86DE' }}>●</span> המיקום שלך (מעוגל)</span>
-        <span><span style={{ color: '#FF7A59' }}>- - -</span> רדיוס {radiusKm} ק״מ</span>
+        <span><span style={{ color: '#2E86DE' }}>●</span> {tr('המיקום שלך (מעוגל)')}</span>
+        <span><span style={{ color: '#FF7A59' }}>- - -</span> {tr('רדיוס {km} ק״מ', { km: radiusKm })}</span>
       </div>
-      {!sel && flying.length > 0 && <p className="small muted" style={{ margin: '-4px 14px 10px' }}>לחצו על מטוס כדי לראות מאיפה ולאן הוא טס</p>}
+      {!sel && flying.length > 0 && <p className="small muted" style={{ margin: '-4px 14px 10px' }}>{tr('לחצו על מטוס כדי לראות מאיפה ולאן הוא טס')}</p>}
     </section>
   );
 }

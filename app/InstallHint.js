@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useT } from './i18n';
 
 // "רוצים את כנף כאפליקציה?": באנדרואיד כפתור התקנה, באייפון הסבר קצר. לא מופיע אם כנף כבר מותקנת או אם סגרו את ההודעה
 export default function InstallHint() {
+  const tr = useT();
   const [mode, setMode] = useState(null);
   const [prompt, setPrompt] = useState(null);
   useEffect(() => {
@@ -21,13 +23,13 @@ export default function InstallHint() {
   return (
     <section className="card install-hint" role="note">
       <div className="row">
-        <span className="strong">📲 רוצים את כנף כאפליקציה?</span>
-        <button type="button" onClick={close} aria-label="סגור" style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'inherit' }}>✕</button>
+        <span className="strong">{tr('📲 רוצים את כנף כאפליקציה?')}</span>
+        <button type="button" onClick={close} aria-label={tr('סגור')} style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'inherit' }}>✕</button>
       </div>
       {mode === 'ios' ? (
-        <span style={{ fontSize: 14, lineHeight: 1.55 }}>בספארי: לחצו על כפתור השיתוף <b>⬆️</b> למטה, ואז על <b>״הוסף למסך הבית״</b>. כנף תופיע עם אייקון, ותיפתח במסך מלא.</span>
+        <span style={{ fontSize: 14, lineHeight: 1.55 }}>{tr('בספארי: לחצו על כפתור השיתוף {share} למטה, ואז על {add}. כנף תופיע עם אייקון, ותיפתח במסך מלא.', { share: <b>⬆️</b>, add: <b>{tr('״הוסף למסך הבית״')}</b> })}</span>
       ) : (
-        <button type="button" className="btn-sun" onClick={async () => { prompt?.prompt(); await prompt?.userChoice; close(); }} style={{ height: 44 }}>הוסף למסך הבית</button>
+        <button type="button" className="btn-sun" onClick={async () => { prompt?.prompt(); await prompt?.userChoice; close(); }} style={{ height: 44 }}>{tr('הוסף למסך הבית')}</button>
       )}
     </section>
   );

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import AirlineLogo from './AirlineLogo';
+import { useT, apiUrl } from './i18n';
 
 // "לאן טסים?": מקלידים יעד, בוחרים מההשלמה, ואז בוחרים טיסה מהרשימה של נתב״ג
 const norm = (s) => String(s || '').toLowerCase().replace(/["'״׳\-.]/g, '').replace(/\s+/g, ' ').trim();
@@ -17,16 +18,17 @@ function score(d, q) {
   return best;
 }
 
-const dayLabel = (ptol) => {
+const dayLabel = (ptol, tr) => {
   const day = ptol.slice(0, 10);
   const fmt = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(ms);
-  if (day === fmt(Date.now())) return 'היום';
-  if (day === fmt(Date.now() + 864e5)) return 'מחר';
+  if (day === fmt(Date.now())) return tr('היום');
+  if (day === fmt(Date.now() + 864e5)) return tr('מחר');
   const [y, m, d] = day.split('-').map(Number);
-  return new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, d));
+  return new Intl.DateTimeFormat(tr.locale, { weekday: 'long', day: 'numeric', month: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, d));
 };
 
 export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
+  const tr = useT();
   const [mode, setMode] = useState('dest');
   const [dests, setDests] = useState(null);
   const [error, setError] = useState('');
@@ -47,14 +49,14 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
   }, []);
 
   useEffect(() => {
-    fetch('/api/destinations').then((r) => r.json().then((b) => (r.ok ? setDests(b.destinations) : setError(b.error || 'משהו השתבש'))))
-      .catch(() => setError('אין חיבור לאינטרנט'));
-  }, []);
+    fetch(apiUrl(tr, '/api/destinations')).then((r) => r.json().then((b) => (r.ok ? setDests(b.destinations) : setError(b.error || tr('משהו השתבש')))))
+      .catch(() => setError(tr('אין חיבור לאינטרנט')));
+  }, [tr]);
 
   useEffect(() => {
     if (!dest) return;
     setFlights(null);
-    fetch(`/api/board?dir=${dir}&loc=${encodeURIComponent(dest.loc)}`).then((r) => r.json()).then((b) => {
+    fetch(apiUrl(tr, `/api/board?dir=${dir}&loc=${encodeURIComponent(dest.loc)}`)).then((r) => r.json()).then((b) => {
       // טיסות בשיתוף קוד (LY339, KL2475…) מוצגות כשורה אחת עם כל המספרים
       const groups = new Map();
       for (const r of b.rows || []) {
@@ -67,7 +69,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
       const list = [...groups.values()].map((g) => ({ ...g, codes: g.codes.sort((a, b) => a.fn - b.fn) })).sort((a, b) => a.ptol.localeCompare(b.ptol));
       setFlights(list);
     }).catch(() => setFlights([]));
-  }, [dest, dir]);
+  }, [dest, dir, tr]);
 
   const nq = norm(q);
   const suggestions = useMemo(() => {
@@ -81,7 +83,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
     return (
       <>
         {numberSearch}
-        <button type="button" className="btn-ghost" onClick={() => setMode('dest')} style={{ alignSelf: 'center' }}>← חיפוש לפי יעד</button>
+        <button type="button" className="btn-ghost" onClick={() => setMode('dest')} style={{ alignSelf: 'center' }}>{tr.dir === 'rtl' ? '←' : '→'} {tr('חיפוש לפי יעד')}</button>
       </>
     );
   }
@@ -96,17 +98,17 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
       <section className="card big" style={{ gap: 10 }}>
         <div className="row">
           <h2 style={{ fontSize: 18 }}>{dest.city}</h2>
-          <button type="button" className="btn-ghost" onClick={() => { setDest(null); setFlights(null); }} style={{ height: 36, padding: '0 12px' }}>שנה יעד</button>
+          <button type="button" className="btn-ghost" onClick={() => { setDest(null); setFlights(null); }} style={{ height: 36, padding: '0 12px' }}>{tr('שנה יעד')}</button>
         </div>
-        <div className="seg" role="tablist" aria-label="כיוון">
-          <button type="button" role="tab" aria-selected={!arr} className={!arr ? 'on' : ''} onClick={() => setDir('D')}>🛫 טסים ל{dest.city}</button>
-          <button type="button" role="tab" aria-selected={arr} className={arr ? 'on' : ''} onClick={() => setDir('A')}>🛬 נוחתים מ{dest.city}</button>
+        <div className="seg" role="tablist" aria-label={tr('כיוון')}>
+          <button type="button" role="tab" aria-selected={!arr} className={!arr ? 'on' : ''} onClick={() => setDir('D')}>🛫 {tr('טסים ל{city}', { city: dest.city })}</button>
+          <button type="button" role="tab" aria-selected={arr} className={arr ? 'on' : ''} onClick={() => setDir('A')}>🛬 {tr('נוחתים מ{city}', { city: dest.city })}</button>
         </div>
-        {arr && <span className="small muted" style={{ marginTop: -4 }}>השעה היא שעת הנחיתה בנתב״ג. מתאים למי שבא לאסוף.</span>}
-        {!flights && <span className="muted">טוען טיסות…</span>}
-        {flights && flights.length === 0 && <span className="muted">{arr ? `אין נחיתות מ${dest.city}` : `אין טיסות ל${dest.city}`} בשלושת הימים הקרובים בלוח של נתב״ג.</span>}
+        {arr && <span className="small muted" style={{ marginTop: -4 }}>{tr('השעה היא שעת הנחיתה בנתב״ג. מתאים למי שבא לאסוף.')}</span>}
+        {!flights && <span className="muted">{tr('טוען טיסות…')}</span>}
+        {flights && flights.length === 0 && <span className="muted">{arr ? tr('אין נחיתות מ{city} בשלושת הימים הקרובים בלוח של נתב״ג.', { city: dest.city }) : tr('אין טיסות ל{city} בשלושת הימים הקרובים בלוח של נתב״ג.', { city: dest.city })}</span>}
         {flights && flights.map((g) => {
-          const day = dayLabel(g.ptol);
+          const day = dayLabel(g.ptol, tr);
           const showDay = day !== lastDay; lastDay = day;
           const main = g.codes[0];
           const cancelled = /CANCEL/.test(g.st);
@@ -115,12 +117,12 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
             <div key={g.ptol} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {showDay && <span className="small strong muted" style={{ marginTop: 4 }}>{day}</span>}
               <button type="button" onClick={() => onPick(`${main.op}${main.no}`, g.ptol.slice(0, 10))}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 16, border: 'none', background: 'var(--ground)', fontFamily: 'inherit', color: 'inherit', textAlign: 'right', cursor: 'pointer', opacity: cancelled ? 0.6 : 1 }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 16, border: 'none', background: 'var(--ground)', fontFamily: 'inherit', color: 'inherit', textAlign: 'start', cursor: 'pointer', opacity: cancelled ? 0.6 : 1 }}>
                 <span style={{ fontSize: 22, fontWeight: 800, minWidth: 62 }}>{g.ptol.slice(11, 16)}</span>
                 <AirlineLogo iata={main.op} name={main.opName} size={28} />
                 <span style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 1 }}>
                   <span className="strong">{main.opName || main.op} · {main.op}{main.no}</span>
-                  {g.codes.length > 1 && <span className="small muted">גם: {g.codes.slice(1).map((c) => `${c.op}${c.no}`).join(', ')}</span>}
+                  {g.codes.length > 1 && <span className="small muted">{tr('גם:')} {g.codes.slice(1).map((c) => `${c.op}${c.no}`).join(', ')}</span>}
                 </span>
                 {(cancelled || late) && <span className={`badge ${cancelled ? 'bad' : 'warn'}`}>{g.stHe}</span>}
                 {!cancelled && !late && /LANDED|LANDING/.test(g.st) && <span className="badge good">{g.stHe}</span>}
@@ -128,7 +130,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
             </div>
           );
         })}
-        <span className="small muted">יש לך מספר טיסה אחר בכרטיס? <button type="button" onClick={() => setMode('number')} style={{ border: 'none', background: 'none', padding: 0, color: 'var(--coral-ink)', fontWeight: 700, fontFamily: 'inherit', fontSize: 'inherit', cursor: 'pointer' }}>חפש לפי מספר</button></span>
+        <span className="small muted">{tr('יש לך מספר טיסה אחר בכרטיס?')} <button type="button" onClick={() => setMode('number')} style={{ border: 'none', background: 'none', padding: 0, color: 'var(--coral-ink)', fontWeight: 700, fontFamily: 'inherit', fontSize: 'inherit', cursor: 'pointer' }}>{tr('חפש לפי מספר')}</button></span>
       </section>
     );
   }
@@ -137,7 +139,7 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
     <section className="card big edit" style={{ gap: 12 }}>
       {recent.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="small muted">חיפושים אחרונים</span>
+          <span className="small muted">{tr('חיפושים אחרונים')}</span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {recent.map((x) => (
               <button key={x.no + x.d} type="button" onClick={() => onPick(x.no, x.d)} className="recent-chip">
@@ -148,32 +150,32 @@ export default function DestinationPicker({ onPick, onCancel, numberSearch }) {
         </div>
       )}
       <div className="field">
-        <label htmlFor="destSearch">עיר או מדינה</label>
-        <input id="destSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="לדוגמה: בנגקוק, יוון, London" autoComplete="off"
+        <label htmlFor="destSearch">{tr('עיר או מדינה')}</label>
+        <input id="destSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('לדוגמה: בנגקוק, יוון, London')} autoComplete="off"
           role="combobox" aria-expanded={suggestions.length > 0} aria-controls="destList"
           onKeyDown={(e) => { if (e.key === 'Enter' && suggestions[0]) { e.preventDefault(); pickDest(suggestions[0]); } }} />
       </div>
       {error && <div className="error" role="alert">{error}</div>}
-      {!dests && !error && <span className="muted">טוען יעדים…</span>}
+      {!dests && !error && <span className="muted">{tr('טוען יעדים…')}</span>}
       {dests && (
-        <div id="destList" role="listbox" aria-label="יעדים" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {!nq && <span className="small muted">יעדים פופולריים בימים הקרובים</span>}
+        <div id="destList" role="listbox" aria-label={tr('יעדים')} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {!nq && <span className="small muted">{tr('יעדים פופולריים בימים הקרובים')}</span>}
           {suggestions.map((d) => (
             <button key={d.loc} type="button" role="option" aria-selected="false" onClick={() => pickDest(d)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 14, border: 'none', background: 'var(--ground)', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'right' }}>
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 14, border: 'none', background: 'var(--ground)', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'start' }}>
               <span style={{ display: 'flex', flexDirection: 'column' }}>
                 <span className="strong" style={{ fontSize: 16 }}>{d.city}</span>
                 <span className="small muted">{d.country}{d.loc ? ` · ${d.loc}` : ''}</span>
               </span>
-              <span className="small muted" style={{ textAlign: 'left' }}>{d.flights ? `${d.flights} המראות` : ''}{d.flights && d.arrivals ? <br /> : null}{d.arrivals ? `${d.arrivals} נחיתות` : ''}</span>
+              <span className="small muted" style={{ textAlign: 'end' }}>{d.flights ? tr('{n} המראות', { n: d.flights }) : ''}{d.flights && d.arrivals ? <br /> : null}{d.arrivals ? tr('{n} נחיתות', { n: d.arrivals }) : ''}</span>
             </button>
           ))}
-          {nq && suggestions.length === 0 && <span className="muted">לא מצאנו טיסות ל״{q}״ בשלושת הימים הקרובים.</span>}
+          {nq && suggestions.length === 0 && <span className="muted">{tr('לא מצאנו טיסות ל״{q}״ בשלושת הימים הקרובים.', { q })}</span>}
         </div>
       )}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button type="button" className="btn-ghost" onClick={() => setMode('number')}>יש לי מספר טיסה</button>
-        {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>ביטול</button>}
+        <button type="button" className="btn-ghost" onClick={() => setMode('number')}>{tr('יש לי מספר טיסה')}</button>
+        {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>{tr('ביטול')}</button>}
       </div>
     </section>
   );

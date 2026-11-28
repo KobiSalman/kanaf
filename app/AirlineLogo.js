@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useT } from './i18n';
 import STATUS from '../data/airlines-status.json';
 
 // ICAO (ELY) -> IATA (LY), לפי רשימת החברות שלנו
@@ -13,6 +14,7 @@ export function iataFromCallsign(callsign) {
 
 // לוגו של חברת התעופה ממאגר לוגואים ציבורי. אם התמונה לא נטענת, מוצג עיגול עם קוד החברה.
 export default function AirlineLogo({ iata, name, size = 40 }) {
+  const tr = useT();
   const [failed, setFailed] = useState(false);
   const code = (iata || '').toUpperCase();
   if (!code) return null;
@@ -27,7 +29,7 @@ export default function AirlineLogo({ iata, name, size = 40 }) {
     <span style={{ width: size * 2.2, height: size, borderRadius: 10, background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
       <img
         src={`https://pics.avs.io/${Math.round(size * 2.2 * 2)}/${size * 2}/${code}.png`}
-        alt={name ? `לוגו ${name}` : `לוגו ${code}`}
+        alt={tr('לוגו {name}', { name: name || code })}
         width={Math.round(size * 2.2)}
         height={size}
         loading="lazy"

@@ -5,6 +5,8 @@ import { lookupLive, CALLSIGN_RE } from '../../../lib/adsb';
 import { iaaFlight } from '../../../lib/iaa';
 import { airlineOf } from '../../../lib/aviation';
 import STATUS from '../../../data/airlines-status.json';
+import { tOf } from '../../../lib/i18nServer';
+import { localizeFlight } from '../../../lib/localize';
 
 const ICAO_TO_IATA = Object.fromEntries(STATUS.airlines.filter((a) => a.icao).map((a) => [a.icao, a.iata]));
 
@@ -79,6 +81,7 @@ function pick(side) {
 }
 
 export async function GET(request) {
+  const t = tOf(request);
   const { searchParams } = new URL(request.url);
   const raw = (searchParams.get('flight') || '').replace(/\s+/g, '').toUpperCase();
   // ELY084 -> ELY84, LY0084 -> LY84: Aviationstack שומר מספרי טיסה בלי אפסים מובילים
@@ -90,21 +93,21 @@ export async function GET(request) {
   // אות קריאה עם אותיות (LOT2YE): אין לו זמנים ב-Aviationstack, אז מחפשים אותו באוויר
   if (!isFlightNumber && CALLSIGN_RE.test(raw)) {
     const lo = await liveOnly(raw, date, 'callsign');
-    if (lo) return NextResponse.json(lo, { headers: cdnHeaders(15, 30) });
-    return NextResponse.json({ error: `${raw} נראה כמו אות קריאה של מטוס, אבל הוא לא משדר כרגע. אפשר לחפש לפי מספר הטיסה שבכרטיס, למשל LO152.` }, { status: 404 });
+    if (lo) return NextResponse.json(localizeFlight(lo, t), { headers: cdnHeaders(15, 30) });
+    return NextResponse.json({ error: t('{code} נראה כמו אות קריאה של מטוס, אבל הוא לא משדר כרגע. אפשר לחפש לפי מספר הטיסה שבכרטיס, למשל LO152.', { code: raw }) }, { status: 404 });
   }
   if (!isFlightNumber) {
-    return NextResponse.json({ error: 'מספר טיסה לא תקין. לדוגמה: LY315, ELY315 או אות קריאה כמו LOT2YE' }, { status: 400 });
+    return NextResponse.json({ error: t('מספר טיסה לא תקין. לדוגמה: LY315, ELY315 או אות קריאה כמו LOT2YE') }, { status: 400 });
   }
   // 1. לוח נתב״ג של רשות שדות התעופה: חינמי, רשמי, ומכסה כל טיסה מישראל ואליה
   let iaa = null;
   try { iaa = await iaaFlight(flight, date); } catch {}
-  if (iaa?.flight) return NextResponse.json(iaa.flight, { headers: cdnHeaders(60, 300) });
+  if (iaa?.flight) return NextResponse.json(localizeFlight(iaa.flight, t), { headers: cdnHeaders(60, 300) });
 
   // 2. טיסה שלא עוברת בישראל (או שאינה בלוח): Aviationstack
   const key = process.env.AVIATIONSTACK_KEY;
   if (!key) {
-    return NextResponse.json({ error: 'חסר מפתח API בשרת (AVIATIONSTACK_KEY)' }, { status: 500 });
+    return NextResponse.json({ error: t('חסר מפתח API בשרת (AVIATIONSTACK_KEY)') }, { status: 500 });
   }
 
   // דרך המטמון המשותף, עם מנעול: גם אם הרבה אנשים מחפשים את אותה טיסה, נשלחת ל-Aviationstack בקשה אחת
@@ -125,14 +128,14 @@ export async function GET(request) {
     // אין זמנים: אם זה קוד ICAO (ELY315), אולי המטוס באוויר עכשיו
     if (/^[A-Z]{3}\d/.test(flight)) {
       const lo = await liveOnly(flight, date, quota ? 'quota' : 'unavailable');
-      if (lo) return NextResponse.json(lo, { headers: cdnHeaders(15, 30) });
+      if (lo) return NextResponse.json(localizeFlight(lo, t), { headers: cdnHeaders(15, 30) });
     }
     if (iaa?.dates?.length) {
-      return NextResponse.json({ error: `לא מצאנו את ${flight} בתאריך הזה בלוח של נתב״ג. תאריכים זמינים: ${iaa.dates.join(', ')}` }, { status: 404, headers: cdnHeaders(60, 120) });
+      return NextResponse.json({ error: t('לא מצאנו את {flight} בתאריך הזה בלוח של נתב״ג. תאריכים זמינים: {dates}', { flight, dates: iaa.dates.join(', ') }) }, { status: 404, headers: cdnHeaders(60, 120) });
     }
     const msg = quota
-      ? 'נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו. אם הטיסה באוויר עכשיו, נסה לחפש לפי קוד ICAO (למשל ELY315).'
-      : 'שירות הטיסות לא זמין כרגע. נסה שוב בעוד כמה דקות.';
+      ? t('נגמרו הבקשות החודשיות ל-Aviationstack, ואין לנו עדיין נתונים שמורים על הטיסה הזו. אם הטיסה באוויר עכשיו, נסה לחפש לפי קוד ICAO (למשל ELY315).')
+      : t('שירות הטיסות לא זמין כרגע. נסה שוב בעוד כמה דקות.');
     return NextResponse.json({ error: msg, quota }, { status: 502, headers: noStore });
   }
 
@@ -144,12 +147,12 @@ export async function GET(request) {
     const dates = [...new Set(all.map((f) => f.flight_date))].sort();
     return NextResponse.json({
       error: dates.length
-        ? `לא מצאנו את ${flight} בתאריך הזה. תאריכים זמינים: ${dates.join(', ')}`
-        : `לא מצאנו את ${flight}. במסלול החינמי רואים רק טיסות מהימים האחרונים והקרובים.`
+        ? t('לא מצאנו את {flight} בתאריך הזה. תאריכים זמינים: {dates}', { flight, dates: dates.join(', ') })
+        : t('לא מצאנו את {flight}. במסלול החינמי רואים רק טיסות מהימים האחרונים והקרובים.', { flight })
     }, { status: 404 });
   }
 
-  return NextResponse.json({
+  return NextResponse.json(localizeFlight({
     flight: chosen.flight?.iata || flight,
     callsign: chosen.flight?.icao || null,
     airline: chosen.airline?.name || null,
@@ -174,5 +177,5 @@ export async function GET(request) {
       : null,
     fetchedAt: new Date(payload.at).toISOString(),
     stale
-  }, { headers: cdnHeaders(60, 300) });
+  }, t), { headers: cdnHeaders(60, 300) });
 }

@@ -3,16 +3,18 @@ import { AIRPORTS } from '../../../lib/airports';
 import { distanceKm, bearingDeg } from '../../../lib/aviation';
 import { adsbFetch } from '../../../lib/adsb';
 import { cachedFetch, cdnHeaders, noStore, RateLimited } from '../../../lib/cache';
+import { tOf } from '../../../lib/i18nServer';
 
 // "המטוס הגיע?": איפה נמצא עכשיו המטוס ששובץ לטיסה שלך, לפי מספר הרישום שלו.
 
 export async function GET(request) {
+  const t = tOf(request);
   const { searchParams } = new URL(request.url);
   const reg = (searchParams.get('reg') || '').trim().toUpperCase();
   const from = (searchParams.get('from') || '').trim().toUpperCase();
   const callsign = (searchParams.get('callsign') || '').trim().toUpperCase();
   if (!/^[A-Z0-9-]{3,10}$/.test(reg)) {
-    return NextResponse.json({ error: 'מספר רישום לא תקין' }, { status: 400, headers: noStore });
+    return NextResponse.json({ error: t('מספר רישום לא תקין') }, { status: 400, headers: noStore });
   }
 
   let r;
@@ -23,7 +25,7 @@ export async function GET(request) {
     });
   } catch (e) {
     const busy = e instanceof RateLimited;
-    return NextResponse.json({ error: busy ? 'השירות עמוס כרגע' : 'לא הצלחנו לבדוק איפה המטוס', busy }, { status: busy ? 503 : 502, headers: noStore });
+    return NextResponse.json({ error: busy ? t('השירות עמוס כרגע') : t('לא הצלחנו לבדוק איפה המטוס'), busy }, { status: busy ? 503 : 502, headers: noStore });
   }
   return NextResponse.json({ ...r.value, stale: r.stale }, { headers: cdnHeaders(60, 120) });
 }
