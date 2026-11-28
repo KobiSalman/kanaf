@@ -32,16 +32,16 @@ export function Sky({ theme, flyer = false }) {
   return (
     <>
       {night && STARS.map(([x, y], i) => (
-        <span key={i} className="star" aria-hidden="true" style={{ position: 'absolute', right: x, top: y, animationDelay: `${(i % 5) * 0.6}s` }} />
+        <span key={i} className="star" aria-hidden="true" style={{ position: 'absolute', insetInlineStart: x, top: y, animationDelay: `${(i % 5) * 0.6}s` }} />
       ))}
       {night ? (
-        <div aria-hidden="true" style={{ position: 'absolute', left: 26, top: 34, width: 64, height: 64, borderRadius: 999, background: '#F4F1E1', boxShadow: '0 0 30px rgba(244,241,225,.45)' }} />
+        <div aria-hidden="true" style={{ position: 'absolute', insetInlineEnd: 26, top: 34, width: 64, height: 64, borderRadius: 999, background: '#F4F1E1', boxShadow: '0 0 30px rgba(244,241,225,.45)' }} />
       ) : (
-        <div aria-hidden="true" style={{ position: 'absolute', left: -24, top: t.key === 'day' ? 26 : 120, width: 110, height: 110, borderRadius: 999, background: t.key === 'dusk' ? '#FFB45C' : '#FFC93C', opacity: t.key === 'day' ? 1 : 0.95 }} />
+        <div aria-hidden="true" style={{ position: 'absolute', insetInlineEnd: -24, top: t.key === 'day' ? 26 : 120, width: 110, height: 110, borderRadius: 999, background: t.key === 'dusk' ? '#FFB45C' : '#FFC93C', opacity: t.key === 'day' ? 1 : 0.95 }} />
       )}
-      <div className="cloud drift" aria-hidden="true" style={{ left: 40, top: 118, width: 120, height: 36, opacity: night ? 0.12 : 0.9 }} />
-      <div className="cloud drift slow" aria-hidden="true" style={{ left: 80, top: 100, width: 60, height: 44, opacity: night ? 0.12 : 0.9 }} />
-      <div className="cloud drift" aria-hidden="true" style={{ right: -30, top: 190, width: 140, height: 34, opacity: night ? 0.1 : 0.6 }} />
+      <div className="cloud drift" aria-hidden="true" style={{ insetInlineEnd: 40, top: 118, width: 120, height: 36, opacity: night ? 0.12 : 0.9 }} />
+      <div className="cloud drift slow" aria-hidden="true" style={{ insetInlineEnd: 80, top: 100, width: 60, height: 44, opacity: night ? 0.12 : 0.9 }} />
+      <div className="cloud drift cloud-far" aria-hidden="true" style={{ insetInlineStart: -30, top: 190, width: 140, height: 34, opacity: night ? 0.1 : 0.6 }} />
       {flyer && (
         <div className="flyer" aria-hidden="true">
           <svg width="34" height="34" viewBox="0 0 24 24" fill={night ? '#F4F1E1' : '#FFFFFF'} stroke={night ? 'none' : '#0E2A47'} strokeWidth="0.6" style={{ transform: 'rotate(-90deg)' }}>

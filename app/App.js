@@ -63,9 +63,9 @@ function Clouds() {
   return (
     <>
       <div className="sun" aria-hidden="true" />
-      <div className="cloud" style={{ left: 40, top: 118, width: 120, height: 36, opacity: 0.9 }} aria-hidden="true" />
-      <div className="cloud" style={{ left: 80, top: 100, width: 60, height: 44, opacity: 0.9 }} aria-hidden="true" />
-      <div className="cloud" style={{ right: -30, top: 190, width: 140, height: 34, opacity: 0.6 }} aria-hidden="true" />
+      <div className="cloud" style={{ insetInlineEnd: 40, top: 118, width: 120, height: 36, opacity: 0.9 }} aria-hidden="true" />
+      <div className="cloud" style={{ insetInlineEnd: 80, top: 100, width: 60, height: 44, opacity: 0.9 }} aria-hidden="true" />
+      <div className="cloud cloud-far" style={{ insetInlineStart: -30, top: 190, width: 140, height: 34, opacity: 0.6 }} aria-hidden="true" />
     </>
   );
 }

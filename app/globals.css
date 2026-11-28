@@ -27,7 +27,7 @@ button, input { font-family: inherit; }
 .hero.short { padding-bottom: 24px; }
 .hero.peach { background: #FF9A76; }
 .hero > * { position: relative; }
-.sun { position: absolute !important; left: -24px; top: 26px; width: 110px; height: 110px; border-radius: 999px; background: var(--sun); }
+.sun { position: absolute !important; inset-inline-end: -24px; top: 26px; width: 110px; height: 110px; border-radius: 999px; background: var(--sun); }
 .cloud { position: absolute !important; border-radius: 999px; background: #fff; }
 .pill { align-self: flex-start; font-size: 13px; font-weight: 700; background: #fff; border-radius: 999px; padding: 6px 14px; }
 .hero h1 { margin: 0; font-size: 36px; font-weight: 800; line-height: 1.1; }
@@ -180,9 +180,11 @@ button:disabled { opacity: 0.6; cursor: default; }
 }
 
 /* הלוגו בראש המסך */
-.brand { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: var(--ground); }
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: var(--ground); }
 .brand-name { display: flex; align-items: center; gap: 9px; color: var(--ink); text-decoration: none; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-.brand-tag { font-size: 13px; font-weight: 500; color: var(--muted); }
+.brand-tag { font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+/* באנגלית התגית והכפתור ארוכים יותר: התגית מוסתרת כשאין לה מקום, במקום להידחס ליד השם */
+@media (max-width: 560px) { [dir='ltr'] .brand-tag { display: none; } }
 .brand + .hero { border-radius: 28px 28px 40px 40px; margin: 0 10px; padding-top: 28px; }
 
 /* הקישוטים בשמיים תמיד מאחורי הטקסט, ובכותרות הנמוכות העננים עולים למעלה ליד השמש כדי לא לכסות את הכיתוב */
@@ -192,7 +194,7 @@ button:disabled { opacity: 0.6; cursor: default; }
 .hero.short .cloud.slow { top: 30px !important; }
 .hero.short .flyer { top: 18px; }
 .hero h1, .hero p { text-shadow: 0 1px 8px rgba(14, 42, 71, 0.18); }
-.hero.short .cloud[style*="right"] { display: none; }
+.hero.short .cloud-far { display: none; }
 .hero .flyer { top: 14px; }
 
 /* כרטיס "טיפים ומידע על היעד" ומסך היעד */
