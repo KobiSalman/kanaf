@@ -765,5 +765,19 @@
  "עודכן עכשיו": "Updated just now",
  "עודכן לפני {n} שנ׳": "Updated {n}s ago",
  "עודכן לפני {n} דק׳": "Updated {n} min ago",
- "עודכן לפני {n} שע׳": "Updated {n}h ago"
+ "עודכן לפני {n} שע׳": "Updated {n}h ago",
+ "עומס משוער בבידוק ובביקורת הדרכונים": "Estimated wait at security and passport control",
+ "עומס משוער: בידוק + דרכונים": "Estimated wait: security + passports",
+ "עומס משוער בבידוק": "Estimated wait at security",
+ "על מה מבוססת ההערכה?": "What is this estimate based on?",
+ "{range} סה״כ": "{range} total",
+ "בידוק ביטחוני: {range}": "Security: {range}",
+ "ביקורת דרכונים: {range}": "Passport control: {range}",
+ "לפי העומס עכשיו": "Based on the crowding right now",
+ "לפי העומס הצפוי ב-{time}, כשתגיעו": "Based on the expected crowding at {time}, when you arrive",
+ "הערכה של כנף, לא נתון רשמי: רשות שדות התעופה לא מפרסמת את זמני התורים בזמן אמת.": "This is Kanaf's estimate, not official data: the Israel Airports Authority doesn't publish live queue times.",
+ "החישוב לפי מספר הטיסות שממריאות מטרמינל {n} כשעתיים עד ארבע שעות אחרי שתגיעו (כ-{count} טיסות בשעה), כי הנוסעים שלהן יעמדו איתכם בתור. המקור: לוח הטיסות של רשות שדות התעופה.": "It's based on the number of flights departing from Terminal {n} about two to four hours after you arrive (about {count} flights an hour), because their passengers will be in the queue with you. Source: the Israel Airports Authority flight board.",
+ "החישוב לפי מספר הטיסות שממריאות מנתב״ג כשעתיים עד ארבע שעות אחרי שתגיעו (כ-{count} טיסות בשעה), כי הנוסעים שלהן יעמדו איתכם בתור. המקור: לוח הטיסות של רשות שדות התעופה.": "It's based on the number of flights departing Ben Gurion about two to four hours after you arrive (about {count} flights an hour), because their passengers will be in the queue with you. Source: the Israel Airports Authority flight board.",
+ "את המספר המרנו לדקות לפי זמני ההמתנה שרשות שדות התעופה פרסמה: פחות מרבע שעה בשעות רגועות, וכ-35 דקות לבידוק ולרישום בשעות העמוסות. מספר הבודקים בפועל, חגים ומזוודות יכולים לשנות את הזמן.": "We converted that into minutes using the waiting times the Airports Authority has published: under 15 minutes at quiet times, and about 35 minutes for security and check-in at busy times. Actual staffing, holidays and luggage can change the time.",
+ "{range} דק׳": "{range} min"
 }

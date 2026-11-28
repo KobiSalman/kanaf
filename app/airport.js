@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { localToInstant } from '../lib/time';
-import { checkinLoad, levelOf, leaveTarget, pickupTarget } from '../lib/airportLogic';
+import { checkinLoad, levelOf, leaveTarget, pickupTarget, queueEstimate } from '../lib/airportLogic';
 import { useT } from './i18n';
 export { checkinLoad, arrivalLoad, levelOf } from '../lib/airportLogic';
 
@@ -79,7 +79,57 @@ export function LeaveHomeCard({ f, now }) {
   const dep = localToInstant(f.departure.estimated || f.departure.scheduled, f.departure.timezone || 'Asia/Jerusalem');
   if (!dep || dep < now || dep - now > 36 * HOUR) return null;
   const target = leaveTarget(f, dep, crowd);
-  return <TimerCard title={tr('מתי להיות בשדה?')} label={tr('יש להיות בנתב״ג עד השעה')} target={target} doneText={tr('הגיע הזמן להיות בשדה!')} />;
+  const domestic = f.arrival.iata === 'ETM' || f.arrival.iata === 'EIL';
+  return <TimerCard title={tr('מתי להיות בשדה?')} label={tr('יש להיות בנתב״ג עד השעה')} target={target} doneText={tr('הגיע הזמן להיות בשדה!')}
+    extra={<QueueMeter crowd={crowd} at={Math.max(now, target)} term={f.departure.terminal} domestic={domestic} atAirport={now >= target} />} />;
+}
+
+// ---------- מד המתנה משוער: בידוק ביטחוני + ביקורת דרכונים ----------
+const SCALE = 90; // דקות: מלוא הפס
+function QueueMeter({ crowd, at, term, domestic, atAirport }) {
+  const tr = useT();
+  const [info, setInfo] = useState(false);
+  const [shown, setShown] = useState(false);
+  useEffect(() => { const id = setTimeout(() => setShown(true), 60); return () => clearTimeout(id); }, []);
+  const q = queueEstimate(crowd, at, { term, domestic });
+  if (!q) return null;
+  // הטווח מבודד משמאל לימין, כדי שבעברית יופיע 21–41 ולא 41–21
+  const range = (r) => tr('{range} דק׳', { range: `\u2066${r[0]}–${r[1]}\u2069` });
+  const mid = (r) => (r[0] + r[1]) / 2;
+  const secW = Math.min(100, (mid(q.security) / SCALE) * 100);
+  const pasW = q.passport ? Math.min(100 - secW, (mid(q.passport) / SCALE) * 100) : 0;
+  const level = q.ratio >= 1 ? 'high' : q.ratio >= 0.55 ? 'mid' : 'low';
+  return (
+    <div className={`queue-meter ${level}`} role="group" aria-label={tr('עומס משוער בבידוק ובביקורת הדרכונים')}>
+      <div className="queue-head">
+        <span className="queue-title">
+          <span className="live-dot" aria-hidden="true" />
+          {q.passport ? tr('עומס משוער: בידוק + דרכונים') : tr('עומס משוער בבידוק')}
+          <button type="button" className="info-btn" aria-expanded={info} aria-label={tr('על מה מבוססת ההערכה?')} onClick={() => setInfo((v) => !v)}>i</button>
+        </span>
+        <span className="queue-total">{tr('{range} סה״כ', { range: range(q.total) })}</span>
+      </div>
+      <div className="queue-bar" aria-hidden="true">
+        <span className="seg sec" style={{ width: shown ? `${secW}%` : 0 }} />
+        {q.passport && <span className="seg pas" style={{ width: shown ? `${pasW}%` : 0 }} />}
+        <span className="shine" />
+      </div>
+      <div className="queue-legend">
+        <span><i className="sw sec" aria-hidden="true" />{tr('בידוק ביטחוני: {range}', { range: range(q.security) })}</span>
+        {q.passport && <span><i className="sw pas" aria-hidden="true" />{tr('ביקורת דרכונים: {range}', { range: range(q.passport) })}</span>}
+      </div>
+      <span className="queue-when">{atAirport ? tr('לפי העומס עכשיו') : tr('לפי העומס הצפוי ב-{time}, כשתגיעו', { time: clockIL(at, tr) })}{q.term ? ` · ${tr('טרמינל {n}', { n: q.term })}` : ''}</span>
+      {info && (
+        <p className="queue-info" role="note">
+          {tr('הערכה של כנף, לא נתון רשמי: רשות שדות התעופה לא מפרסמת את זמני התורים בזמן אמת.')}{' '}
+          {q.term
+            ? tr('החישוב לפי מספר הטיסות שממריאות מטרמינל {n} כשעתיים עד ארבע שעות אחרי שתגיעו (כ-{count} טיסות בשעה), כי הנוסעים שלהן יעמדו איתכם בתור. המקור: לוח הטיסות של רשות שדות התעופה.', { n: q.term, count: q.flights })
+            : tr('החישוב לפי מספר הטיסות שממריאות מנתב״ג כשעתיים עד ארבע שעות אחרי שתגיעו (כ-{count} טיסות בשעה), כי הנוסעים שלהן יעמדו איתכם בתור. המקור: לוח הטיסות של רשות שדות התעופה.', { count: q.flights })}{' '}
+          {tr('את המספר המרנו לדקות לפי זמני ההמתנה שרשות שדות התעופה פרסמה: פחות מרבע שעה בשעות רגועות, וכ-35 דקות לבידוק ולרישום בשעות העמוסות. מספר הבודקים בפועל, חגים ומזוודות יכולים לשנות את הזמן.')}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ניווט ב-Waze ל"טרמינל 3 שער 32": היציאה של הנוחתים. נקודה על דרך הנוחתים, כדי ש-Waze לא ינווט לדרך הממריאים שמעליה

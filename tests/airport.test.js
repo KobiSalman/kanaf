@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { leaveTarget, pickupTarget, levelOf, checkinLoad } from '../lib/airportLogic.js';
+import { leaveTarget, pickupTarget, levelOf, checkinLoad, queueEstimate, terminalLoad } from '../lib/airportLogic.js';
 import { il } from './helpers';
 
 const crowdWith = (startIso, deps) => {
@@ -38,4 +38,28 @@ describe('רמות עומס', () => {
     expect(levelOf(14).key).toBe('high');
     expect(levelOf(null)).toBeNull();
   });
+});
+
+describe('זמן המתנה משוער בבידוק', () => {
+  const H = 3600e3, t0 = Date.UTC(2026, 10, 29, 6);
+  const crowd = (t3, t1 = 0) => ({ hours: Array.from({ length: 8 }, (_, i) => ({ t: t0 + i * H, dep: t3 + t1, arr: 0, term: { 3: t3, 1: t1 } })) });
+  it('סופר רק את הטרמינל של הנוסע', () => {
+    expect(terminalLoad(crowd(14, 2), t0, '3')).toBe(14);
+    expect(terminalLoad(crowd(14, 2), t0, '1')).toBe(2);
+  });
+  it('שעה רגועה: בידוק קצר', () => {
+    const q = queueEstimate(crowd(2), t0, { term: '3' });
+    expect(q.security[1]).toBeLessThanOrEqual(15);
+  });
+  it('עמוס: בערך 30 עד 45 דקות בבידוק', () => {
+    const q = queueEstimate(crowd(14), t0, { term: '3' });
+    expect(q.security[0]).toBeGreaterThanOrEqual(25);
+    expect(q.security[1]).toBeLessThanOrEqual(45);
+    expect(q.total[0]).toBeLessThan(q.total[1]);
+  });
+  it('טרמינל 1: פחות טיסות כבר נחשבות עומס', () => {
+    expect(queueEstimate(crowd(0, 6), t0, { term: '1' }).security[0]).toBe(queueEstimate(crowd(14), t0, { term: '3' }).security[0]);
+  });
+  it('טיסה פנימית: בלי ביקורת דרכונים', () => expect(queueEstimate(crowd(5), t0, { term: '3', domestic: true }).passport).toBeNull());
+  it('בלי לוח: אין הערכה', () => expect(queueEstimate(null, t0, { term: '3' })).toBeNull());
 });
