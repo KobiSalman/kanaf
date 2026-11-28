@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cachedFetch, cdnHeaders, noStore } from '../../../lib/cache';
+import { tOf } from '../../../lib/i18nServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,8 +8,9 @@ export const dynamic = 'force-dynamic';
 const SUPPORTED = new Set('AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF IDR INR ISK JPY KRW MXN MYR NOK NZD PHP PLN RON SEK SGD THB TRY USD ZAR'.split(' '));
 
 export async function GET(request) {
+  const t = tOf(request);
   const cur = (new URL(request.url).searchParams.get('cur') || '').toUpperCase();
-  if (!SUPPORTED.has(cur)) return NextResponse.json({ error: 'אין שער למטבע הזה' }, { status: 404, headers: cdnHeaders(86400, 86400) });
+  if (!SUPPORTED.has(cur)) return NextResponse.json({ error: t('אין שער למטבע הזה') }, { status: 404, headers: cdnHeaders(86400, 86400) });
   try {
     const r = await cachedFetch(`rate:${cur}`, { freshMs: 12 * 3600e3, keepSeconds: 7 * 86400, source: 'rates' }, async () => {
       const res = await fetch(`https://api.frankfurter.dev/v1/latest?from=${cur}&to=ILS`, { cache: 'no-store' });
@@ -19,6 +21,6 @@ export async function GET(request) {
     });
     return NextResponse.json(r.value, { headers: cdnHeaders(3600, 43200) });
   } catch {
-    return NextResponse.json({ error: 'השער לא זמין כרגע' }, { status: 502, headers: noStore });
+    return NextResponse.json({ error: t('השער לא זמין כרגע') }, { status: 502, headers: noStore });
   }
 }

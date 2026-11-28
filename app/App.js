@@ -9,15 +9,16 @@ import NearbyMap from './NearbyMap';
 import DestinationPicker from './DestinationPicker';
 import { codeshareInfo, delayStamp } from '../lib/flightLogic';
 import { flightStage, boardingAt } from '../lib/stageLogic';
-import { mealInfo, MEAL_LABEL } from '../lib/mealLogic';
+import { mealInfo, mealLabel } from '../lib/mealLogic';
 import MEALS from '../data/meals.json';
 import { DestinationTeaser, DestinationTab } from './Destination';
-import { AIRCRAFT, distanceKm } from '../lib/aviation';
+import { aircraftName, distanceKm } from '../lib/aviation';
 import { AIRPORTS } from '../lib/airports';
 import { AIRLINE_STATUS, assessFlight, heDate } from '../lib/airlineStatus';
-import { TYPE_INFO, seatBlocks, seatSide } from '../lib/aircraftInfo';
+import { typeInfo as getTypeInfo, seatBlocks, seatSide } from '../lib/aircraftInfo';
 import AirlineLogo, { iataFromCallsign } from './AirlineLogo';
 import { Sky, skyTheme, ArcPlane, BoardingPass } from './visuals';
+import { useT, apiUrl } from './i18n';
 
 const STATUS = {
   scheduled: { text: 'מתוכננת', tone: 'good' },
@@ -37,10 +38,13 @@ const CITY = {
   MIA: 'מיאמי', SFO: 'סן פרנסיסקו', BOS: 'בוסטון', YYZ: 'טורונטו', LIS: 'ליסבון', WAW: 'ורשה', BUH: 'בוקרשט',
   OTP: 'בוקרשט', SOF: 'סופיה', TBS: 'טביליסי', LED: 'סנט פטרבורג', HND: 'טוקיו', NRT: 'טוקיו', DEL: 'דלהי', BOM: 'מומבאי'
 };
-const cityOf = (side) => CITY[side.iata] || side.cityHe || side.iata;
+// בעברית: השם המוכר מהרשימה. באנגלית השרת כבר שולח את שם העיר באנגלית
+export const CITY_NAMES = CITY;
+const cityOf = (side, tr) => (tr && tr.lang !== 'he' ? side.cityHe || (CITY[side.iata] && tr.has(CITY[side.iata]) ? tr.raw(CITY[side.iata]) : side.iata) : CITY[side.iata] || side.cityHe || side.iata);
 
-const PlaneIcon = ({ color = 'currentColor', size = 22 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: 'scaleX(-1)' }}>
+// flip: בעברית המטוס פונה שמאלה, בכיוון הקריאה
+const PlaneIcon = ({ color = 'currentColor', size = 22, flip = true }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: flip ? 'scaleX(-1)' : undefined }}>
     <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
   </svg>
 );
@@ -89,35 +93,38 @@ function flightState(f) {
   return { departed, landed };
 }
 
-function statusOf(f) {
+function statusOf(f, tr) {
   const { departed, landed } = flightState(f);
-  if (f.status === 'cancelled' || f.status === 'diverted' || f.status === 'incident') return STATUS[f.status];
-  if (landed) return STATUS.landed;
-  if (!departed) return { text: 'לפני המראה', tone: 'warn' };
-  return STATUS.active;
+  const loc = (s) => ({ ...s, text: tr.raw(s.text) });
+  if (f.status === 'cancelled' || f.status === 'diverted' || f.status === 'incident') return loc(STATUS[f.status]);
+  if (landed) return loc(STATUS.landed);
+  if (!departed) return { text: tr('לפני המראה'), tone: 'warn' };
+  return loc(STATUS.active);
 }
 
 function SearchCard({ flightNo, setFlightNo, date, setDate, onSearch, onCancel, loading }) {
+  const tr = useT();
   return (
     <form className="card edit" onSubmit={(e) => { e.preventDefault(); onSearch(); }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800 }}>איזו טיסה לעקוב?</h2>
+      <h2 style={{ fontSize: 17, fontWeight: 800 }}>{tr('איזו טיסה לעקוב?')}</h2>
       <div className="field">
-        <label htmlFor="flightNo">מספר טיסה</label>
-        <input id="flightNo" value={flightNo} onChange={(e) => setFlightNo(e.target.value.toUpperCase())} placeholder="לדוגמה LY315" autoCapitalize="characters" />
+        <label htmlFor="flightNo">{tr('מספר טיסה')}</label>
+        <input id="flightNo" value={flightNo} onChange={(e) => setFlightNo(e.target.value.toUpperCase())} placeholder={tr('לדוגמה LY315')} autoCapitalize="characters" />
       </div>
       <div className="field">
-        <label htmlFor="flightDate">תאריך</label>
+        <label htmlFor="flightDate">{tr('תאריך')}</label>
         <input id="flightDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" className="btn-sun" disabled={loading || !flightNo}>{loading ? 'מחפש…' : 'חפש טיסה'}</button>
-        {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>ביטול</button>}
+        <button type="submit" className="btn-sun" disabled={loading || !flightNo}>{loading ? tr('מחפש…') : tr('חפש טיסה')}</button>
+        {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>{tr('ביטול')}</button>}
       </div>
     </form>
   );
 }
 
 function InboundCard({ f, inbound, now }) {
+  const tr = useT();
   if (!inbound || inbound.error) return null;
   const reg = f.aircraft?.registration;
   const from = f.departure.iata;
@@ -125,45 +132,49 @@ function InboundCard({ f, inbound, now }) {
   let title = '', text = '', tone = null, extra = null;
 
   if (s === 'silent') {
-    title = 'המטוס לא משדר כרגע';
-    text = `${reg} לא משדר מיקום. בדרך כלל זה אומר שהוא חונה ומנועיו כבויים, למשל כבר בשדה שממנו תמריא.`;
+    title = tr('המטוס לא משדר כרגע');
+    text = tr('{reg} לא משדר מיקום. בדרך כלל זה אומר שהוא חונה ומנועיו כבויים, למשל כבר בשדה שממנו תמריא.', { reg });
   } else if (s === 'at_airport') {
-    title = 'המטוס כבר בשדה ✓';
-    text = `${reg} נמצא ב-${from}. זה סימן טוב להמראה בזמן.`;
+    title = tr('המטוס כבר בשדה ✓');
+    text = tr('{reg} נמצא ב-{from}. זה סימן טוב להמראה בזמן.', { reg, from });
     tone = 'good';
   } else if (s === 'ground_elsewhere') {
-    title = 'המטוס על הקרקע בשדה אחר';
-    text = `${reg} נמצא כ-${inbound.distKm} ק״מ מ-${from}. הוא יצטרך לטוס לכאן לפני הטיסה שלך.`;
+    title = tr('המטוס על הקרקע בשדה אחר');
+    text = tr('{reg} נמצא כ-{km} ק״מ מ-{from}. הוא יצטרך לטוס לכאן לפני הטיסה שלך.', { reg, km: inbound.distKm, from });
     tone = 'warn';
   } else if (s === 'inbound') {
-    title = 'המטוס בדרך אליך';
-    text = `${reg} טס עכשיו${inbound.nowCallsign ? ` כ-${inbound.nowCallsign}` : ''}, כ-${inbound.distKm} ק״מ מ-${from}, וצפוי לנחות בעוד כ-${minutesLabel(inbound.etaMin)}.`;
+    title = tr('המטוס בדרך אליך');
+    text = inbound.nowCallsign
+      ? tr('{reg} טס עכשיו כ-{callsign}, כ-{km} ק״מ מ-{from}, וצפוי לנחות בעוד כ-{eta}.', { reg, callsign: inbound.nowCallsign, km: inbound.distKm, from, eta: minutesLabel(inbound.etaMin, tr) })
+      : tr('{reg} טס עכשיו, כ-{km} ק״מ מ-{from}, וצפוי לנחות בעוד כ-{eta}.', { reg, km: inbound.distKm, from, eta: minutesLabel(inbound.etaMin, tr) });
     const depAt = localToInstant(f.departure.estimated || f.departure.scheduled, f.departure.timezone);
     const readyAt = Date.parse(inbound.checkedAt) + (inbound.etaMin + 45) * 60000;
     const late = depAt ? Math.round((readyAt - depAt) / 60000) : null;
-    if (late != null && late > 5) { tone = 'bad'; extra = `ההמראה שלך עלולה להתעכב בכ-${minutesLabel(late)}`; }
-    else if (late != null) { tone = 'good'; extra = 'יש מספיק זמן להכנה בין הטיסות'; }
+    if (late != null && late > 5) { tone = 'bad'; extra = tr('ההמראה שלך עלולה להתעכב בכ-{time}', { time: minutesLabel(late, tr) }); }
+    else if (late != null) { tone = 'good'; extra = tr('יש מספיק זמן להכנה בין הטיסות'); }
   } else if (s === 'flying_elsewhere') {
-    title = 'המטוס טס עכשיו לכיוון אחר';
-    text = `${reg} באוויר${inbound.nowCallsign ? ` כ-${inbound.nowCallsign}` : ''}, כ-${inbound.distKm} ק״מ מ-${from}, ולא בכיוון אליו. ייתכן שזו טיסה קודמת שעוד תחזור, או שחברת התעופה תחליף מטוס.`;
+    title = tr('המטוס טס עכשיו לכיוון אחר');
+    text = inbound.nowCallsign
+      ? tr('{reg} באוויר כ-{callsign}, כ-{km} ק״מ מ-{from}, ולא בכיוון אליו. ייתכן שזו טיסה קודמת שעוד תחזור, או שחברת התעופה תחליף מטוס.', { reg, callsign: inbound.nowCallsign, km: inbound.distKm, from })
+      : tr('{reg} באוויר, כ-{km} ק״מ מ-{from}, ולא בכיוון אליו. ייתכן שזו טיסה קודמת שעוד תחזור, או שחברת התעופה תחליף מטוס.', { reg, km: inbound.distKm, from });
     tone = 'warn';
   } else if (s === 'is_our_flight') {
     return null;
   } else {
-    title = inbound.onGround ? 'המטוס על הקרקע' : 'המטוס באוויר';
-    text = `לא הצלחנו לזהות את מיקום שדה ${from}, ולכן אין הערכה.`;
+    title = inbound.onGround ? tr('המטוס על הקרקע') : tr('המטוס באוויר');
+    text = tr('לא הצלחנו לזהות את מיקום שדה {from}, ולכן אין הערכה.', { from });
   }
 
   return (
     <section className="card">
       <div className="row">
-        <h2>המטוס הגיע?</h2>
-        {tone && <span className={`badge ${tone}`}>{tone === 'good' ? 'בסדר' : tone === 'bad' ? 'עיכוב אפשרי' : 'לשים לב'}</span>}
+        <h2>{tr('המטוס הגיע?')}</h2>
+        {tone && <span className={`badge ${tone}`}>{tone === 'good' ? tr('בסדר') : tone === 'bad' ? tr('עיכוב אפשרי') : tr('לשים לב')}</span>}
       </div>
       <span className="strong" style={{ fontSize: 17 }}>{title}</span>
       <span style={{ fontSize: 14, lineHeight: 1.55 }}>{text}</span>
       {extra && <span className="strong" style={{ fontSize: 14, color: tone === 'bad' ? '#8A2412' : 'var(--good)' }}>{extra}</span>}
-      <span className="small muted">הערכה בלבד, לפי מיקום המטוס בזמן אמת (adsb.lol) וזמן הכנה של כ-45 דק׳ בין טיסות · {agoLabel(now - Date.parse(inbound.checkedAt))}</span>
+      <span className="small muted">{tr('הערכה בלבד, לפי מיקום המטוס בזמן אמת (adsb.lol) וזמן הכנה של כ-45 דק׳ בין טיסות')} · {agoLabel(now - Date.parse(inbound.checkedAt), tr)}</span>
     </section>
   );
 }
@@ -187,8 +198,10 @@ function usePolling(fn, baseMs, deps) {
 }
 
 const TLV_COORDS = { lat: 32.0114, lon: 34.8867, label: 'נתב״ג' };
+const NO_ID = 'ללא זיהוי';
 
 function NearbyTab({ now }) {
+  const tr = useT();
   const [where, setWhere] = useState(null);
   const [status, setStatus] = useState('idle');
   const [data, setData] = useState(null);
@@ -198,11 +211,11 @@ function NearbyTab({ now }) {
     if (!navigator.geolocation) { setStatus('denied'); return; }
     setStatus('locating');
     navigator.geolocation.getCurrentPosition(
-      (p) => { setWhere({ lat: p.coords.latitude, lon: p.coords.longitude, label: 'המיקום שלך' }); setStatus('ready'); },
+      (p) => { setWhere({ lat: p.coords.latitude, lon: p.coords.longitude, label: tr('המיקום שלך') }); setStatus('ready'); },
       () => setStatus('denied'),
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
     );
-  }, []);
+  }, [tr]);
 
   useEffect(() => { locate(); }, [locate]);
 
@@ -211,13 +224,13 @@ function NearbyTab({ now }) {
     // מעגלים את המיקום לכ-2 ק״מ כבר בטלפון: המיקום המדויק לא יוצא מהמכשיר
     const lat = (Math.round(where.lat * 50) / 50).toFixed(2), lon = (Math.round(where.lon * 50) / 50).toFixed(2);
     try {
-      const res = await fetch(`/api/nearby?lat=${lat}&lon=${lon}`);
+      const res = await fetch(apiUrl(tr, `/api/nearby?lat=${lat}&lon=${lon}`));
       const body = await res.json();
       if (stopped()) return true;
-      if (!res.ok) { if (!data) setError(body.error || 'משהו השתבש'); return false; }
+      if (!res.ok) { if (!data) setError(body.error || tr('משהו השתבש')); return false; }
       setData(body); setError('');
       return true;
-    } catch { if (!stopped() && !data) setError('אין חיבור לאינטרנט'); return false; }
+    } catch { if (!stopped() && !data) setError(tr('אין חיבור לאינטרנט')); return false; }
   }, 30000, [where]);
 
   const planes = data?.planes || [];
@@ -228,80 +241,83 @@ function NearbyTab({ now }) {
     <>
       <header className="hero short" style={{ background: skyTheme('Asia/Jerusalem', Date.now()).bg, color: skyTheme('Asia/Jerusalem', Date.now()).ink }}>
         <Sky theme={skyTheme('Asia/Jerusalem', Date.now())} />
-        <span className="pill">{where ? where.label : 'מאתר מיקום…'} ✦</span>
-        <h1>מה טס מעליי?</h1>
-        <p>{data ? `${flying.length} מטוסים באוויר ברדיוס ${data.radiusKm} ק״מ` : 'כל המטוסים סביבך, בזמן אמת'}</p>
+        <span className="pill">{where ? tr.raw(where.label) : tr('מאתר מיקום…')} ✦</span>
+        <h1>{tr('מה טס מעליי?')}</h1>
+        <p>{data ? tr('{n} מטוסים באוויר ברדיוס {km} ק״מ', { n: flying.length, km: data.radiusKm }) : tr('כל המטוסים סביבך, בזמן אמת')}</p>
       </header>
       <div className="content flat">
         {status === 'denied' && !where && (
           <section className="card cream">
-            <span className="strong">אין גישה למיקום</span>
-            <span style={{ fontSize: 14 }}>אפשר לאשר גישה למיקום בדפדפן, או לראות מה טס עכשיו ליד נתב״ג.</span>
+            <span className="strong">{tr('אין גישה למיקום')}</span>
+            <span style={{ fontSize: 14 }}>{tr('אפשר לאשר גישה למיקום בדפדפן, או לראות מה טס עכשיו ליד נתב״ג.')}</span>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn-sun" onClick={() => { setWhere(TLV_COORDS); setStatus('ready'); }}>הצג ליד נתב״ג</button>
-              <button type="button" className="btn-ghost" onClick={locate}>נסה שוב</button>
+              <button type="button" className="btn-sun" onClick={() => { setWhere(TLV_COORDS); setStatus('ready'); }}>{tr('הצג ליד נתב״ג')}</button>
+              <button type="button" className="btn-ghost" onClick={locate}>{tr('נסה שוב')}</button>
             </div>
           </section>
         )}
-        {status === 'locating' && <section className="card"><PlaneLoader text="מאתר את המיקום שלך…" /></section>}
-        {where && !data && !error && <section className="card"><PlaneLoader text="מחפש מטוסים סביבך…" /></section>}
+        {status === 'locating' && <section className="card"><PlaneLoader text={tr('מאתר את המיקום שלך…')} /></section>}
+        {where && !data && !error && <section className="card"><PlaneLoader text={tr('מחפש מטוסים סביבך…')} /></section>}
         {error && <div className="error" role="alert">{error}</div>}
-        {data && planes.length === 0 && <div className="card">אין כרגע מטוסים משדרים באזור.</div>}
+        {data && planes.length === 0 && <div className="card">{tr('אין כרגע מטוסים משדרים באזור.')}</div>}
         {data && where && <NearbyMap center={{ lat: Math.round(where.lat * 50) / 50, lon: Math.round(where.lon * 50) / 50 }} radiusKm={data.radiusKm} planes={planes} />}
 
         {flying.map((p) => (
           <section key={p.id} className="card" style={{ gap: 6 }}>
             <div className="row">
-              <span style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>{iataFromCallsign(p.callsign) && <AirlineLogo iata={iataFromCallsign(p.callsign)} name={p.airline} size={26} />}{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> · {p.airline}</span> : null}</span>
-              <span className="badge good">{p.distKm} ק״מ{p.fromYou ? ` · ${p.fromYou}` : ''}</span>
+              <span style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>{iataFromCallsign(p.callsign) && <AirlineLogo iata={iataFromCallsign(p.callsign)} name={p.airline} size={26} />}{p.callsign || p.registration || tr(NO_ID)}{p.airline ? <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> · {p.airline}</span> : null}</span>
+              <span className="badge good">{tr('{km} ק״מ', { km: p.distKm })}{p.fromYou ? ` · ${p.fromYou}` : ''}</span>
             </div>
-            {p.route && <span className="strong" style={{ fontSize: 16 }}>{p.route.from.city} ← {p.route.to.city} <bdi dir="ltr" className="muted" style={{ fontSize: 13, fontWeight: 500 }}>{p.route.from.code} → {p.route.to.code}</bdi></span>}
-            <span style={{ fontSize: 14 }}>{p.type ? (AIRCRAFT[p.type] || p.type) : 'דגם לא ידוע'}{p.registration && p.callsign ? ` · ${p.registration}` : ''}</span>
+            {p.route && <span className="strong" style={{ fontSize: 16 }}>{p.route.from.city} {ARROW[tr.dir]} {p.route.to.city} <bdi dir="ltr" className="muted" style={{ fontSize: 13, fontWeight: 500 }}>{p.route.from.code} → {p.route.to.code}</bdi></span>}
+            <span style={{ fontSize: 14 }}>{p.type ? aircraftName(p.type, tr) : tr('דגם לא ידוע')}{p.registration && p.callsign ? ` · ${p.registration}` : ''}</span>
             <span className="muted" style={{ fontSize: 13 }}>
-              {p.altFt.toLocaleString('en-US')} רגל · {p.speedKmh} קמ״ש
-              {p.verticalFpm > 300 ? ' · מטפס' : p.verticalFpm < -300 ? ' · יורד' : ''}
-              {p.heading ? ` · טס ל${p.heading}` : ''}
+              {tr('{ft} רגל', { ft: p.altFt.toLocaleString('en-US') })} · {tr('{n} קמ״ש', { n: p.speedKmh })}
+              {p.verticalFpm > 300 ? ` · ${tr('מטפס')}` : p.verticalFpm < -300 ? ` · ${tr('יורד')}` : ''}
+              {p.heading ? ` · ${tr('טס ל{dir}', { dir: p.heading })}` : ''}
             </span>
           </section>
         ))}
 
         {ground.length > 0 && (
           <section className="card">
-            <h2>על הקרקע ({ground.length})</h2>
+            <h2>{tr('על הקרקע ({n})', { n: ground.length })}</h2>
             {ground.map((p) => (
               <div key={p.id} className="row">
-                <span>{p.callsign || p.registration || 'ללא זיהוי'}{p.airline ? ` · ${p.airline}` : ''}{p.route ? ` · ${p.route.from.city} ← ${p.route.to.city}` : ''}</span>
-                <span className="muted">{p.type ? (AIRCRAFT[p.type] || p.type) : ''}</span>
+                <span>{p.callsign || p.registration || tr(NO_ID)}{p.airline ? ` · ${p.airline}` : ''}{p.route ? ` · ${p.route.from.city} ${ARROW[tr.dir]} ${p.route.to.city}` : ''}</span>
+                <span className="muted">{p.type ? aircraftName(p.type, tr) : ''}</span>
               </div>
             ))}
           </section>
         )}
 
-        {data && <p className="small muted" style={{ margin: 0 }}>נתונים בזמן אמת מרשת ADS-B (adsb.lol), מתעדכנים כל 30 שניות · {agoLabel(now - Date.parse(data.at))}. מטוסים צבאיים או פרטיים לא תמיד משדרים זיהוי.</p>}
-        <p className="small muted" style={{ margin: 0 }}>פרטיות: המיקום שלך מעוגל לכ-2 ק״מ עוד בטלפון, נשלח רק כדי למצוא מטוסים סביבך, ולא נשמר אצלנו עם שום פרט מזהה.</p>
+        {data && <p className="small muted" style={{ margin: 0 }}>{tr('נתונים בזמן אמת מרשת ADS-B (adsb.lol), מתעדכנים כל 30 שניות')} · {agoLabel(now - Date.parse(data.at), tr)}. {tr('מטוסים צבאיים או פרטיים לא תמיד משדרים זיהוי.')}</p>}
+        <p className="small muted" style={{ margin: 0 }}>{tr('פרטיות: המיקום שלך מעוגל לכ-2 ק״מ עוד בטלפון, נשלח רק כדי למצוא מטוסים סביבך, ולא נשמר אצלנו עם שום פרט מזהה.')}</p>
       </div>
     </>
   );
 }
 
 function AirlineAlert({ f, goStatus }) {
-  const r = assessFlight(f);
+  const tr = useT();
+  const r = assessFlight(f, tr);
   if (!r || r.level === 'ok') return null;
   const bad = r.level === 'bad';
   return (
     <section className="card" style={{ background: bad ? '#FFD9D2' : 'var(--cream)', gap: 6 }} role="alert">
       <span className="strong" style={{ fontSize: 17, color: bad ? '#8A2412' : '#5C4A12' }}>{r.title}</span>
       {r.text && <span style={{ fontSize: 14, lineHeight: 1.55 }}>{r.text}</span>}
-      <span style={{ fontSize: 14 }}>כדאי לבדוק מול חברת התעופה אם הטיסה שלך מתקיימת, ומה מגיע לך אם היא בוטלה.</span>
-      <button type="button" className="btn-ghost" onClick={goStatus} style={{ alignSelf: 'flex-start' }}>מי עוד טס? ←</button>
+      <span style={{ fontSize: 14 }}>{tr('כדאי לבדוק מול חברת התעופה אם הטיסה שלך מתקיימת, ומה מגיע לך אם היא בוטלה.')}</span>
+      <button type="button" className="btn-ghost" onClick={goStatus} style={{ alignSelf: 'flex-start' }}>{tr('מי עוד טס?')} {GO[tr.dir]}</button>
     </section>
   );
 }
 
 function StatusTab() {
+  const tr = useT();
   const [q, setQ] = useState('');
-  const list = AIRLINE_STATUS.airlines.filter((a, i, arr) => arr.findIndex((b) => b.name === a.name) === i);
-  const match = (a) => !q || a.name.includes(q) || a.iata.includes(q.toUpperCase()) || (a.icao || '').includes(q.toUpperCase());
+  const list = AIRLINE_STATUS.airlines.filter((a, i, arr) => arr.findIndex((b) => b.name === a.name) === i)
+    .map((a) => ({ ...a, name: tr.raw(a.name), note: a.note && tr.raw(a.note), routes: (a.routes || []).map((r) => ({ ...r, note: r.note && tr.raw(r.note) })) }));
+  const match = (a) => !q || a.name.toLowerCase().includes(q.toLowerCase()) || a.iata.includes(q.toUpperCase()) || (a.icao || '').includes(q.toUpperCase());
   const suspended = list.filter((a) => a.status === 'suspended' && match(a));
   const returning = list.filter((a) => a.status === 'returning' && match(a));
   const flying = list.filter((a) => a.status === 'flying' && match(a));
@@ -322,50 +338,50 @@ function StatusTab() {
     <>
       <header className="hero short" style={{ background: skyTheme('Asia/Jerusalem', Date.now()).bg, color: skyTheme('Asia/Jerusalem', Date.now()).ink }}>
         <Sky theme={skyTheme('Asia/Jerusalem', Date.now())} />
-        <span className="pill">עודכן {heDate(AIRLINE_STATUS.updatedAt)} ✦</span>
-        <h1>מי טס עכשיו?</h1>
-        <p>{flying.length} חברות טסות · {returning.length} חוזרות בקרוב · {suspended.length} לא טסות</p>
+        <span className="pill">{tr('עודכן {date}', { date: heDate(AIRLINE_STATUS.updatedAt, tr) })} ✦</span>
+        <h1>{tr('מי טס עכשיו?')}</h1>
+        <p>{tr('{a} חברות טסות · {b} חוזרות בקרוב · {c} לא טסות', { a: flying.length, b: returning.length, c: suspended.length })}</p>
       </header>
       <div className="content flat">
         <div className="field">
-          <label htmlFor="airlineSearch">חיפוש חברת תעופה</label>
-          <input id="airlineSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="לדוגמה: וויז או LH" />
+          <label htmlFor="airlineSearch">{tr('חיפוש חברת תעופה')}</label>
+          <input id="airlineSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('לדוגמה: וויז או LH')} />
         </div>
 
         {suspended.length > 0 && (
           <section className="card" style={{ background: '#FFE9E4' }}>
-            <h2>לא טסות כרגע לישראל</h2>
-            {suspended.map((a) => <Row key={a.iata} a={a} extra={a.until ? `מושהה עד ${heDate(a.until)}` : 'מושהה עד הודעה חדשה'} />)}
+            <h2>{tr('לא טסות כרגע לישראל')}</h2>
+            {suspended.map((a) => <Row key={a.iata} a={a} extra={a.until ? tr('מושהה עד {date}', { date: heDate(a.until, tr) }) : tr('מושהה עד הודעה חדשה')} />)}
           </section>
         )}
 
         {returning.length > 0 && (
           <section className="card cream">
-            <h2>חוזרות בקרוב</h2>
-            {returning.map((a) => <Row key={a.iata} a={a} extra={a.date ? `חוזרת ב-${heDate(a.date)}` : 'מועד החזרה טרם נקבע סופית'} />)}
+            <h2>{tr('חוזרות בקרוב')}</h2>
+            {returning.map((a) => <Row key={a.iata} a={a} extra={a.date ? tr('חוזרת ב-{date}', { date: heDate(a.date, tr) }) : tr('מועד החזרה טרם נקבע סופית')} />)}
           </section>
         )}
 
         {routeIssues.length > 0 && (
           <section className="card cream">
-            <h2>קווים מושהים</h2>
+            <h2>{tr('קווים מושהים')}</h2>
             {routeIssues.flatMap((a) => (a.routes || []).filter((r) => r.status === 'suspended').map((r) => (
-              <Row key={a.iata + r.iata} a={{ ...a, note: r.note }} extra={`${r.iata}${r.until ? ` · עד ${heDate(r.until)}` : ''}`} />
+              <Row key={a.iata + r.iata} a={{ ...a, note: r.note }} extra={`${r.iata}${r.until ? ` · ${tr('עד {date}', { date: heDate(r.until, tr) })}` : ''}`} />
             )))}
           </section>
         )}
 
         <section className="card mint">
-          <h2>טסות לישראל</h2>
+          <h2>{tr('טסות לישראל')}</h2>
           {flying.map((a) => <Row key={a.iata} a={a} />)}
         </section>
 
         <section className="card">
-          <h2>מקורות</h2>
+          <h2>{tr('מקורות')}</h2>
           {AIRLINE_STATUS.sources.map((s) => (
-            <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'var(--coral-ink)' }}>{s.title} ({heDate(s.date)})</a>
+            <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'var(--coral-ink)' }}>{tr.raw(s.title)} ({heDate(s.date, tr)})</a>
           ))}
-          <span className="small muted">המצב משתנה מהר. לפני הטיסה תמיד כדאי לבדוק גם באתר של חברת התעופה.</span>
+          <span className="small muted">{tr('המצב משתנה מהר. לפני הטיסה תמיד כדאי לבדוק גם באתר של חברת התעופה.')}</span>
         </section>
       </div>
     </>
@@ -385,9 +401,18 @@ function PlaneLoader({ text, small = false }) {
   );
 }
 
+// חץ "קדימה" ו"מסלול": בעברית שמאלה, באנגלית ימינה
+const GO = { rtl: '←', ltr: '→' };
+const BACK = { rtl: '→', ltr: '←' };
+const ARROW = GO;
+
+// שעה בשעון ישראל, לפי השפה
+const clockOf = (ms, tr) => new Date(ms).toLocaleTimeString(tr.locale, { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false });
+
 const BOARD_TONE = (st) => (/CANCEL/.test(st) ? 'bad' : st === 'DELAYED' ? 'warn' : 'good');
 
 function BoardTab({ now, onOpen }) {
+  const tr = useT();
   const [dir, setDir] = useState('D');
   const [q, setQ] = useState('');
   const [query, setQuery] = useState('');
@@ -402,16 +427,16 @@ function BoardTab({ now, onOpen }) {
     const load = async () => {
       if (document.hidden) return;
       try {
-        const res = await fetch(`/api/board?dir=${dir}&q=${encodeURIComponent(query)}`);
+        const res = await fetch(apiUrl(tr, `/api/board?dir=${dir}&q=${encodeURIComponent(query)}`));
         const body = await res.json();
         if (stop) return;
-        if (!res.ok) setError(body.error || 'משהו השתבש'); else { setData(body); setError(''); }
-      } catch { if (!stop) setError('אין חיבור לאינטרנט'); }
+        if (!res.ok) setError(body.error || tr('משהו השתבש')); else { setData(body); setError(''); }
+      } catch { if (!stop) setError(tr('אין חיבור לאינטרנט')); }
     };
     load();
     const id = setInterval(load, 120000);
     return () => { stop = true; clearInterval(id); };
-  }, [dir, query]);
+  }, [dir, query, tr]);
 
   const theme = skyTheme('Asia/Jerusalem', now);
   const rows = data?.rows || [];
@@ -419,13 +444,13 @@ function BoardTab({ now, onOpen }) {
     <>
       <header className="hero short" style={{ background: theme.bg, color: theme.ink }}>
         <Sky theme={theme} flyer />
-        <span className="pill">לוח נתב״ג חי ✦</span>
-        <h1>{dir === 'D' ? 'המראות' : 'נחיתות'}</h1>
-        <p style={{ fontSize: 14, opacity: 0.9 }}>{dir === 'D' ? 'מה ממריא מנתב״ג' : 'מה נוחת בנתב״ג'} · {query ? 'שלושת הימים הקרובים' : 'שעתיים אחורה ו-12 שעות קדימה'}</p>
+        <span className="pill">{tr('לוח נתב״ג חי')} ✦</span>
+        <h1>{dir === 'D' ? tr('המראות') : tr('נחיתות')}</h1>
+        <p style={{ fontSize: 14, opacity: 0.9 }}>{dir === 'D' ? tr('מה ממריא מנתב״ג') : tr('מה נוחת בנתב״ג')} · {query ? tr('שלושת הימים הקרובים') : tr('שעתיים אחורה ו-12 שעות קדימה')}</p>
       </header>
       <div className="content flat">
-        <div role="tablist" aria-label="המראות או נחיתות" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-          {[['D', 'המראות'], ['A', 'נחיתות']].map(([k, label]) => (
+        <div role="tablist" aria-label={tr('המראות או נחיתות')} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+          {[['D', tr('המראות')], ['A', tr('נחיתות')]].map(([k, label]) => (
             <button key={k} type="button" role="tab" aria-selected={dir === k} onClick={() => setDir(k)}
               style={{ height: 46, borderRadius: 14, border: 'none', fontFamily: 'inherit', fontSize: 16, fontWeight: 800, cursor: 'pointer',
                 background: dir === k ? 'var(--ink)' : '#fff', color: dir === k ? '#fff' : 'var(--ink)' }}>{label}</button>
@@ -433,13 +458,13 @@ function BoardTab({ now, onOpen }) {
         </div>
         {dir === 'D' && !query && <CrowdForecast now={now} />}
         <div className="field">
-          <label htmlFor="boardSearch">חיפוש לפי עיר, מדינה, חברה או מספר טיסה</label>
-          <input id="boardSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="לדוגמה: אתונה, וויז, LY315" />
+          <label htmlFor="boardSearch">{tr('חיפוש לפי עיר, מדינה, חברה או מספר טיסה')}</label>
+          <input id="boardSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('לדוגמה: אתונה, וויז, LY315')} />
         </div>
 
         {error && <div className="error" role="alert">{error}</div>}
-        {!data && !error && <section className="card"><PlaneLoader text="טוען את הלוח…" /></section>}
-        {data && rows.length === 0 && <div className="card">לא נמצאו טיסות{query ? ` עבור "${query}"` : ''}.</div>}
+        {!data && !error && <section className="card"><PlaneLoader text={tr('טוען את הלוח…')} /></section>}
+        {data && rows.length === 0 && <div className="card">{query ? tr('לא נמצאו טיסות עבור "{q}".', { q: query }) : tr('לא נמצאו טיסות.')}</div>}
 
         {rows.length > 0 && (
           <section className="card" style={{ padding: 8, gap: 0 }}>
@@ -449,7 +474,7 @@ function BoardTab({ now, onOpen }) {
               return (
                 <button key={`${r.op}${r.fn}${r.stol}`} type="button" onClick={() => onOpen(`${r.op}${r.no ?? r.fn}`, r.stol.slice(0, 10))}
                   style={{ display: 'grid', gridTemplateColumns: '58px 1fr auto', gap: 10, alignItems: 'center', padding: '10px 8px', border: 'none',
-                    borderBottom: '1px solid #EAF1F7', textAlign: 'right', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', background: past ? '#F1F5F9' : 'none' }}>
+                    borderBottom: '1px solid #EAF1F7', textAlign: 'start', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', background: past ? '#F1F5F9' : 'none' }}>
                   <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                     <span style={{ fontWeight: 800, textDecoration: late ? 'line-through' : 'none', color: late ? 'var(--muted)' : 'var(--ink)', fontSize: late ? 13 : 17 }}>{r.stol.slice(11, 16)}</span>
                     {late && <span style={{ fontSize: 17, fontWeight: 800, color: r.ptol > r.stol ? 'var(--coral-ink)' : 'var(--good)' }}>{r.ptol.slice(11, 16)}</span>}
@@ -458,7 +483,7 @@ function BoardTab({ now, onOpen }) {
                     <AirlineLogo iata={r.op} name={r.opName} size={24} />
                     <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <span className="strong" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.city}</span>
-                      <span className="muted small">{r.op}{r.no ?? r.fn} · {r.opName}{r.term ? ` · טרמינל ${r.term}` : ''}</span>
+                      <span className="muted small">{r.op}{r.no ?? r.fn} · {r.opName}{r.term ? ` · ${tr('טרמינל {n}', { n: r.term })}` : ''}</span>
                     </span>
                   </span>
                   <span className={`badge ${BOARD_TONE(r.st)}`} style={{ fontSize: 12 }}>{r.stHe || r.st}</span>
@@ -467,7 +492,7 @@ function BoardTab({ now, onOpen }) {
             })}
           </section>
         )}
-        {data && <p className="small muted" style={{ margin: 0 }}>נתונים רשמיים מלוח נתב״ג של רשות שדות התעופה, מתעדכנים כל כמה דקות · {agoLabel(now - Date.parse(data.at))}. לחיצה על טיסה פותחת אותה.</p>}
+        {data && <p className="small muted" style={{ margin: 0 }}>{tr('נתונים רשמיים מלוח נתב״ג של רשות שדות התעופה, מתעדכנים כל כמה דקות')} · {agoLabel(now - Date.parse(data.at), tr)}. {tr('לחיצה על טיסה פותחת אותה.')}</p>}
       </div>
     </>
   );
@@ -481,66 +506,73 @@ const WA_PATH = 'M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2
 const lookupDate = (f) => (f.direction === 'arrival' && f.boardDate ? f.boardDate : f.date);
 
 function ShareButton({ f }) {
-  const url = typeof window !== 'undefined' ? `${window.location.origin}/?f=${encodeURIComponent(f.flight)}&d=${encodeURIComponent(lookupDate(f))}` : '';
-  const dest = f.arrival?.iata ? cityOf(f.arrival) : null;
-  const text = `עקבו אחרי הטיסה שלי ${f.flight}${dest ? ` ל${dest}` : ''} בזמן אמת ✈️`;
+  const tr = useT();
+  const url = typeof window !== 'undefined' ? `${window.location.origin}${tr.href('/')}?f=${encodeURIComponent(f.flight)}&d=${encodeURIComponent(lookupDate(f))}` : '';
+  const dest = f.arrival?.iata ? cityOf(f.arrival, tr) : null;
+  const text = dest
+    ? tr('עקבו אחרי הטיסה שלי {flight} ל{dest} בזמן אמת ✈️', { flight: f.flight, dest })
+    : tr('עקבו אחרי הטיסה שלי {flight} בזמן אמת ✈️', { flight: f.flight });
   return (
-    <a href={`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`} target="_blank" rel="noopener noreferrer" aria-label="שתף את הטיסה בוואטסאפ" className="wa-btn">
+    <a href={`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`} target="_blank" rel="noopener noreferrer" aria-label={tr('שתף את הטיסה בוואטסאפ')} className="wa-btn">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d={WA_PATH} /></svg>
-      <span>שתף</span>
+      <span>{tr('שתף')}</span>
     </a>
   );
 }
 
 // ---------- כרטיסי "ראש המסך" לפי שלב ----------
 function BoardingLead({ f, depAt }) {
+  const tr = useT();
   const b = boardingAt(depAt);
   return (
     <section className="card big" style={{ gap: 8 }}>
-      <span className="small muted">כבר בשדה?</span>
-      <span style={{ fontSize: 26, fontWeight: 800 }}>עלייה למטוס בערך ב-{b ? new Date(b).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }) : '—'}</span>
+      <span className="small muted">{tr('כבר בשדה?')}</span>
+      <span style={{ fontSize: 26, fontWeight: 800 }}>{tr('עלייה למטוס בערך ב-{time}', { time: b ? clockOf(b, tr) : '—' })}</span>
       <span style={{ fontSize: 15, lineHeight: 1.55 }}>
-        {f.departure.gate ? <b>שער {f.departure.gate}</b> : 'השער מופיע על המסכים בטרמינל, בדרך כלל כשעה לפני ההמראה.'}
-        {f.departure.checkin ? <> · דלפקים {f.departure.checkin}{f.departure.checkinZone ? `, אזור ${f.departure.checkinZone}` : ''}</> : null}
+        {f.departure.gate ? <b>{tr('שער {gate}', { gate: f.departure.gate })}</b> : tr('השער מופיע על המסכים בטרמינל, בדרך כלל כשעה לפני ההמראה.')}
+        {f.departure.checkin ? <> · {f.departure.checkinZone ? tr('דלפקים {desks}, אזור {zone}', { desks: f.departure.checkin, zone: f.departure.checkinZone }) : tr('דלפקים {desks}', { desks: f.departure.checkin })}</> : null}
       </span>
-      <span className="small muted">שעה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.</span>
+      <span className="small muted">{tr('שעה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.')}</span>
     </section>
   );
 }
 
 function AirLead({ f, left, arrivingTLV, goLive }) {
+  const tr = useT();
   const t = hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled);
   return (
     <section className="card big" style={{ gap: 8 }}>
-      <span className="small muted">{arrivingTLV ? 'בדרך לישראל' : 'בטיסה'}</span>
-      <span style={{ fontSize: 26, fontWeight: 800 }}>נוחתים ב-{t}</span>
-      {left > 0 && <span style={{ fontSize: 16 }}>עוד <b>{minutesLabel(left)}</b>{f.arrival.estimatedByUs ? ' (הערכה לפי המרחק)' : ''}</span>}
-      <button type="button" className="btn-sun" onClick={goLive} style={{ flex: 'none' }}>איפה המטוס עכשיו ←</button>
+      <span className="small muted">{arrivingTLV ? tr('בדרך לישראל') : tr('בטיסה')}</span>
+      <span style={{ fontSize: 26, fontWeight: 800 }}>{tr('נוחתים ב-{time}', { time: t })}</span>
+      {left > 0 && <span style={{ fontSize: 16 }}>{tr('עוד {time}', { time: <b>{minutesLabel(left, tr)}</b> })}{f.arrival.estimatedByUs ? ` ${tr('(הערכה לפי המרחק)')}` : ''}</span>}
+      <button type="button" className="btn-sun" onClick={goLive} style={{ flex: 'none' }}>{tr('איפה המטוס עכשיו')} {GO[tr.dir]}</button>
     </section>
   );
 }
 
 function LandedLead({ f, now, waiting }) {
+  const tr = useT();
   const at = localToInstant(f.arrival.actual || f.arrival.estimated, f.arrival.timezone || 'Asia/Jerusalem');
   const t = hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled);
   const fresh = at && now - at < 60 * 60000;
   const outAt = at ? at + 35 * 60000 : null;
   return (
     <section className="card big" style={{ gap: 8 }}>
-      <span style={{ fontSize: 26, fontWeight: 800 }}>{waiting ? 'נחתו' : 'נחתתם'} ב-{t} ✓</span>
-      {waiting && fresh && <span style={{ fontSize: 15, lineHeight: 1.55 }}>בדרך כלל הנוסעים יוצאים מהטרמינל 30–40 דקות אחרי הנחיתה, אחרי ביקורת הגבולות והמזוודות. {now < outAt ? <>כלומר בערך ב-<b>{new Date(outAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false })}</b>.</> : 'כלומר הם אמורים לצאת בדקות האלה.'}</span>}
-      {!waiting && <span style={{ fontSize: 15, lineHeight: 1.55 }}>איך מגיעים מהשדה לעיר? בכרטיס הטיפים שלמטה.</span>}
+      <span style={{ fontSize: 26, fontWeight: 800 }}>{waiting ? tr('נחתו ב-{time} ✓', { time: t }) : tr('נחתתם ב-{time} ✓', { time: t })}</span>
+      {waiting && fresh && <span style={{ fontSize: 15, lineHeight: 1.55 }}>{tr('בדרך כלל הנוסעים יוצאים מהטרמינל 30–40 דקות אחרי הנחיתה, אחרי ביקורת הגבולות והמזוודות.')} {now < outAt ? tr('כלומר בערך ב-{time}.', { time: <b>{clockOf(outAt, tr)}</b> }) : tr('כלומר הם אמורים לצאת בדקות האלה.')}</span>}
+      {!waiting && <span style={{ fontSize: 15, lineHeight: 1.55 }}>{tr('איך מגיעים מהשדה לעיר? בכרטיס הטיפים שלמטה.')}</span>}
     </section>
   );
 }
 
 // "עוד פרטים": כל מה שלא חשוב ברגע הזה, מקופל
 function MoreDetails({ children }) {
+  const tr = useT();
   const items = (Array.isArray(children) ? children : [children]).filter(Boolean);
   if (!items.length) return null;
   return (
     <details className="more">
-      <summary className="card more-sum"><span className="strong">עוד פרטים על הטיסה</span><span className="muted small">זמנים, המטוס ועוד</span></summary>
+      <summary className="card more-sum"><span className="strong">{tr('עוד פרטים על הטיסה')}</span><span className="muted small">{tr('זמנים, המטוס ועוד')}</span></summary>
       <div className="more-body">{items.map((x, i) => <Fragment key={i}>{x}</Fragment>)}</div>
     </details>
   );
@@ -548,27 +580,29 @@ function MoreDetails({ children }) {
 
 // "יש אוכל בטיסה?": לפי החברה שמפעילה בפועל (בשיתוף קוד זו לא בהכרח החברה שבכרטיס)
 function MealCard({ f }) {
+  const tr = useT();
   const cs = codeshareInfo(f);
   const op = cs ? cs.op : { iata: f.airlineIata, airline: f.airline };
   const dep = localToInstant(f.departure.scheduled, f.departure.timezone || 'Asia/Jerusalem');
   const arr = localToInstant(f.arrival.scheduled || f.arrival.estimated, f.arrival.timezone);
   const dur = dep && arr && arr > dep ? Math.round((arr - dep) / 60000) : null;
-  const m = mealInfo(op.iata, dur);
+  const m = mealInfo(op.iata, dur, tr);
   if (!m) return null;
   const tone = m.kind === 'included' ? 'good' : m.kind === 'paid' ? 'warn' : '';
   return (
     <section className="card" style={{ gap: 8 }}>
       <div className="row">
-        <h2>🍽️ יש אוכל בטיסה?</h2>
-        <span className={`badge ${tone}`}>{MEAL_LABEL[m.kind]}{m.known ? '' : ' · בדרך כלל'}</span>
+        <h2>{tr('🍽️ יש אוכל בטיסה?')}</h2>
+        <span className={`badge ${tone}`}>{mealLabel(m.kind, tr)}{m.known ? '' : ` · ${tr('בדרך כלל')}`}</span>
       </div>
-      <span style={{ fontSize: 14, lineHeight: 1.55 }}>{cs && !cs.op.own ? `הטיסה מופעלת על ידי ${op.airline || op.iata}, ולכן המדיניות שלה קובעת. ` : ''}{m.text}</span>
-      <span className="small muted">צריכים ארוחה כשרה, צמחונית או ללא גלוטן? ברוב החברות מזמינים מראש באתר או באפליקציה, בדרך כלל עד 24–48 שעות לפני הטיסה. {MEALS.note}</span>
+      <span style={{ fontSize: 14, lineHeight: 1.55 }}>{cs && !cs.op.own ? `${tr('הטיסה מופעלת על ידי {airline}, ולכן המדיניות שלה קובעת.', { airline: op.airline || op.iata })} ` : ''}{m.text}</span>
+      <span className="small muted">{tr('צריכים ארוחה כשרה, צמחונית או ללא גלוטן? ברוב החברות מזמינים מראש באתר או באפליקציה, בדרך כלל עד 24–48 שעות לפני הטיסה.')} {tr.raw(MEALS.note)}</span>
     </section>
   );
 }
 
 function CodeshareCard({ f }) {
+  const tr = useT();
   const c = codeshareInfo(f);
   if (!c) return null;
   const mine = c.op.own;
@@ -578,29 +612,30 @@ function CodeshareCard({ f }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <AirlineLogo iata={c.op.iata} name={c.op.airline} size={30} />
         <span style={{ display: 'flex', flexDirection: 'column' }}>
-          <span className="small muted">טיסה משותפת{c.certain ? '' : ' · ככל הנראה'}</span>
+          <span className="small muted">{tr('טיסה משותפת')}{c.certain ? '' : ` · ${tr('ככל הנראה')}`}</span>
           <span className="strong" style={{ fontSize: 16 }}>
-            {mine ? `${c.op.airline} מפעילה את הטיסה` : `בפועל טסים עם ${c.op.airline || c.op.iata} (${c.op.flight})`}
+            {mine ? tr('{airline} מפעילה את הטיסה', { airline: c.op.airline }) : tr('בפועל טסים עם {airline} ({flight})', { airline: c.op.airline || c.op.iata, flight: c.op.flight })}
           </span>
         </span>
       </div>
       <span style={{ fontSize: 14, lineHeight: 1.55 }}>
         {mine
-          ? `אותה טיסה נמכרת גם בתור ${names}. אם בכרטיס שלך כתוב מספר אחר, זו אותה טיסה ואותו מטוס.`
-          : `הכרטיס שלך הוא של ${f.airline} (${f.flight}), אבל המטוס, הצוות והדלפקים בשדה הם של ${c.op.airline || c.op.iata}. בלוחות בטרמינל הטיסה יכולה להופיע תחת ${c.op.flight}.`}
+          ? tr('אותה טיסה נמכרת גם בתור {names}. אם בכרטיס שלך כתוב מספר אחר, זו אותה טיסה ואותו מטוס.', { names })
+          : tr('הכרטיס שלך הוא של {airline} ({flight}), אבל המטוס, הצוות והדלפקים בשדה הם של {op}. בלוחות בטרמינל הטיסה יכולה להופיע תחת {opFlight}.', { airline: f.airline, flight: f.flight, op: c.op.airline || c.op.iata, opFlight: c.op.flight })}
       </span>
-      <span className="small muted">תנאי כבודה ושינויים בכרטיס נקבעים בדרך כלל לפי החברה שממנה קניתם. כדאי לבדוק מולה.</span>
+      <span className="small muted">{tr('תנאי כבודה ושינויים בכרטיס נקבעים בדרך כלל לפי החברה שממנה קניתם. כדאי לבדוק מולה.')}</span>
     </section>
   );
 }
 
 function FlightsTab({ f, now, editing, setEditing, search, error, changes, clearChanges, goAircraft, goDest, inbound, goStatus, goLive, loading, liveLoading }) {
+  const tr = useT();
   const hasFlight = !!f;
-  const st = hasFlight ? statusOf(f) : null;
+  const st = hasFlight ? statusOf(f, tr) : null;
   const fs = hasFlight ? flightState(f) : null;
   const stTone = hasFlight && f.statusEn ? (/CANCEL/.test(f.statusEn) ? 'bad' : f.statusEn === 'DELAYED' ? 'warn' : 'good') : st?.tone;
   // עיכוב או ביטול: החותמת האדומה מחליפה את תגית הסטטוס, גם כשהלוח עדיין כותב "בזמן"
-  const stamp = hasFlight && !f.liveOnly ? delayStamp(f) : null;
+  const stamp = hasFlight && !f.liveOnly ? delayStamp(f, tr) : null;
   // בלי "כ-" לפני השעות: התווית ליד השעה כבר אומרת שזו הערכה
   const approx = () => '';
   const t = hasFlight ? times(f) : null;
@@ -608,19 +643,21 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
   const toDep = t?.depAt ? Math.ceil((t.depAt - now) / 60000) : null;
   const early = t?.arrAt && t?.arrSched ? Math.round((t.arrSched - t.arrAt) / 60000) : 0;
 
-  let pill = 'מעקב טיסה';
+  let pill = tr('מעקב טיסה');
   if (hasFlight) {
-    if (f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '')) pill = 'בוטלה';
-    else if (fs.landed) pill = 'נחתה';
-    else if (fs.departed) pill = 'בטיסה עכשיו';
-    else if (toDep <= 0) pill = 'ממריאה בקרוב';
-    else if (toDep > 0) pill = toDep > 1440 ? `עוד ${Math.round(toDep / 1440)} ימים` : `עוד ${minutesLabel(toDep)}`;
+    if (f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '')) pill = tr('בוטלה');
+    else if (fs.landed) pill = tr('נחתה');
+    else if (fs.departed) pill = tr('בטיסה עכשיו');
+    else if (toDep <= 0) pill = tr('ממריאה בקרוב');
+    else if (toDep > 0) pill = toDep > 1440 ? tr('עוד {n} ימים', { n: Math.round(toDep / 1440) }) : tr('עוד {time}', { time: minutesLabel(toDep, tr) });
   }
-  const title = hasFlight ? (f.liveOnly ? `${f.callsign} ${f.live?.isGround ? 'על הקרקע' : 'בשמיים!'}` : fs.landed ? 'נחתת!' : `טסים ל${cityOf(f.arrival)}!`) : 'לאן טסים? ✈️';
+  const title = hasFlight
+    ? (f.liveOnly ? (f.live?.isGround ? tr('{callsign} על הקרקע', { callsign: f.callsign }) : tr('{callsign} בשמיים!', { callsign: f.callsign })) : fs.landed ? tr('נחתת!') : tr('טסים ל{city}!', { city: cityOf(f.arrival, tr) }))
+    : tr('לאן טסים? ✈️');
 
   const [seat, setSeat] = useState('');
   useEffect(() => { try { setSeat(localStorage.getItem('kanaf:seat') || ''); } catch {} }, []);
-  const typeInfo = hasFlight && f.aircraft?.type ? TYPE_INFO[f.aircraft.type] : null;
+  const typeInfo = hasFlight && f.aircraft?.type ? getTypeInfo(f.aircraft.type, tr) : null;
   let boarding = null;
   if (hasFlight) {
     const dep = hhmm(f.departure.estimated || f.departure.scheduled);
@@ -636,8 +673,8 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
     // שיתוף קוד: מי שקנה כרטיס של חברה אחת יכול לטוס בפועל בחברה אחרת. זה חשוב, אז מודגש
     const opName = cs ? (cs.op.airline || cs.op.iata) : null;
     const csLine = cs ? (cs.op.own
-      ? <>טיסה משותפת: מי שקנה כרטיס {cs.others.map((x, i) => <Fragment key={x.flight}>{i ? ' או ' : ''}<bdi><b>{x.flight}</b></bdi></Fragment>)} טס בטיסה הזו, ב<b>{opName}</b>.</>
-      : <>טיסה משותפת: הכרטיס של {f.airline || f.flight}, אבל בפועל טסים ב<b>{opName}</b> (<bdi>{cs.op.flight}</bdi>). הצ׳ק-אין, הדלפקים והמטוס של {opName}.</>) : null;
+      ? tr('טיסה משותפת: מי שקנה כרטיס {flights} טס בטיסה הזו, ב{airline}.', { flights: <>{cs.others.map((x, i) => <Fragment key={x.flight}>{i ? ` ${tr('או')} ` : ''}<bdi><b>{x.flight}</b></bdi></Fragment>)}</>, airline: <b>{opName}</b> })
+      : tr('טיסה משותפת: הכרטיס של {ticket}, אבל בפועל טסים ב{airline} ({flight}). הצ׳ק-אין, הדלפקים והמטוס של {op}.', { ticket: f.airline || f.flight, airline: <b>{opName}</b>, flight: <bdi>{cs.op.flight}</bdi>, op: opName })) : null;
     const cancelled = f.status === 'cancelled' || /CANCEL/.test(f.statusEn || '');
     const arrivingTLV = f.arrival.iata === 'TLV';
     const leavePick = (
@@ -652,8 +689,8 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                 <section className="card cream note">
                   <div className="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E2A47" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg></div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span className="strong">השער עוד לא פורסם</span>
-                    <span style={{ fontSize: 14, color: '#5C4A12', lineHeight: 1.5 }}>הוא נקבע בדרך כלל כמה שעות לפני ההמראה.</span>
+                    <span className="strong">{tr('השער עוד לא פורסם')}</span>
+                    <span style={{ fontSize: 14, color: '#5C4A12', lineHeight: 1.5 }}>{tr('הוא נקבע בדרך כלל כמה שעות לפני ההמראה.')}</span>
                   </div>
                 </section>
               )}
@@ -666,13 +703,13 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                 const known = !!f.aircraft?.type;
                 const Tag = known ? 'button' : 'section';
                 return (
-                <Tag {...(known ? { type: 'button', onClick: goAircraft } : {})} className="card peach" style={{ border: 'none', textAlign: 'right', cursor: known ? 'pointer' : 'default', flexDirection: 'row', alignItems: 'center', gap: 14, color: 'inherit' }}>
+                <Tag {...(known ? { type: 'button', onClick: goAircraft } : {})} className="card peach" style={{ border: 'none', textAlign: 'start', cursor: known ? 'pointer' : 'default', flexDirection: 'row', alignItems: 'center', gap: 14, color: 'inherit' }}>
                   <div className="plane-dot" style={{ width: 54, height: 54, borderRadius: 18 }}><span style={{ color: '#fff', display: 'flex' }}><TopIcon /></span></div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                    <span style={{ fontSize: 13, color: '#6B3A2A' }}>{f.aircraft?.type ? 'תטוס ב-' : 'המטוס של הטיסה'}</span>
-                    <span style={{ fontSize: 17, fontWeight: 800 }}>{f.aircraft?.type ? `${AIRCRAFT[f.aircraft.type] || f.aircraft.type}${f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}` : (fs.departed ? 'לא הצלחנו לזהות את המטוס' : 'נזהה את המטוס בקרוב')}</span>
-                    <span style={{ fontSize: 14, fontWeight: f.aircraft?.type ? 700 : 400, color: f.aircraft?.type ? 'var(--coral-ink)' : '#6B3A2A', lineHeight: 1.5 }}>{f.aircraft?.type ? 'הכר את המטוס שלך ←' : fs.departed ? 'המטוס לא משדר זיהוי שאנחנו קולטים כרגע' : 'בדרך כלל כחצי שעה עד שעה לפני ההמראה, כשהמטוס מתחיל לשדר. אז יופיעו דגם, תמונה ותרשים מושבים'}</span>
-                    {!f.aircraft?.type && liveLoading && <PlaneLoader small text="מחפש את המטוס…" />}
+                    <span style={{ fontSize: 13, color: '#6B3A2A' }}>{f.aircraft?.type ? tr('תטוס ב-') : tr('המטוס של הטיסה')}</span>
+                    <span style={{ fontSize: 17, fontWeight: 800 }}>{f.aircraft?.type ? `${aircraftName(f.aircraft.type, tr)}${f.aircraft.registration ? ` · ${f.aircraft.registration}` : ''}` : (fs.departed ? tr('לא הצלחנו לזהות את המטוס') : tr('נזהה את המטוס בקרוב'))}</span>
+                    <span style={{ fontSize: 14, fontWeight: f.aircraft?.type ? 700 : 400, color: f.aircraft?.type ? 'var(--coral-ink)' : '#6B3A2A', lineHeight: 1.5 }}>{f.aircraft?.type ? `${tr('הכר את המטוס שלך')} ${GO[tr.dir]}` : fs.departed ? tr('המטוס לא משדר זיהוי שאנחנו קולטים כרגע') : tr('בדרך כלל כחצי שעה עד שעה לפני ההמראה, כשהמטוס מתחיל לשדר. אז יופיעו דגם, תמונה ותרשים מושבים')}</span>
+                    {!f.aircraft?.type && liveLoading && <PlaneLoader small text={tr('מחפש את המטוס…')} />}
                   </div>
                 </Tag>
                 );
@@ -683,30 +720,30 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
       <>
               {!fs.departed && f.aircraft?.registration && (inbound
                 ? <InboundCard f={f} inbound={inbound} now={now} />
-                : <section className="card"><h2>המטוס הגיע?</h2><PlaneLoader small text="בודק איפה המטוס עכשיו…" /></section>)}
+                : <section className="card"><h2>{tr('המטוס הגיע?')}</h2><PlaneLoader small text={tr('בודק איפה המטוס עכשיו…')} /></section>)}
       </>
     );
     const timesCard = (
       <>
               <section className="card">
-                <h2>הזמנים</h2>
-                <div className="row"><span className="muted">{f.departure.estimatedByUs ? 'המראה משוערת (לפי המרחק, שעון מקומי)' : 'המראה מתוכננת'}</span><span className="strong">{approx(f.departure)}{hhmm(f.departure.estimated || f.departure.scheduled)}</span></div>
+                <h2>{tr('הזמנים')}</h2>
+                <div className="row"><span className="muted">{f.departure.estimatedByUs ? tr('המראה משוערת (לפי המרחק, שעון מקומי)') : tr('המראה מתוכננת')}</span><span className="strong">{approx(f.departure)}{hhmm(f.departure.estimated || f.departure.scheduled)}</span></div>
                 {f.source === 'iaa' && f.direction === 'departure' && !f.departure.actual && f.departure.delay > 0 && (
-                  <div className="row"><span className="muted">שעה מעודכנת</span><span className="strong" style={{ color: 'var(--coral-ink)' }}>{hhmm(f.departure.estimated)} · איחור {f.departure.delay} דק׳</span></div>
+                  <div className="row"><span className="muted">{tr('שעה מעודכנת')}</span><span className="strong" style={{ color: 'var(--coral-ink)' }}>{hhmm(f.departure.estimated)} · {tr('איחור {n} דק׳', { n: f.departure.delay })}</span></div>
                 )}
                 {f.departure.actual && (
-                  <div className="row"><span className="muted">המראה בפועל</span><span className="strong" style={{ color: f.departure.delay > 0 ? 'var(--coral-ink)' : 'var(--good)' }}>{hhmm(f.departure.actual)}{f.departure.delay > 0 ? ` · איחור ${f.departure.delay} דק׳` : ''}</span></div>
+                  <div className="row"><span className="muted">{tr('המראה בפועל')}</span><span className="strong" style={{ color: f.departure.delay > 0 ? 'var(--coral-ink)' : 'var(--good)' }}>{hhmm(f.departure.actual)}{f.departure.delay > 0 ? ` · ${tr('איחור {n} דק׳', { n: f.departure.delay })}` : ''}</span></div>
                 )}
-                {!f.arrival.estimatedByUs && <div className="row"><span className="muted">נחיתה מתוכננת (שעון מקומי)</span><span className="strong">{hhmm(f.arrival.scheduled)}</span></div>}
-                <div className="row"><span className="muted">{f.arrival.actual ? 'נחיתה בפועל' : f.arrival.estimatedByUs ? 'נחיתה משוערת (לפי המרחק, שעון מקומי)' : 'נחיתה צפויה'}</span>
+                {!f.arrival.estimatedByUs && <div className="row"><span className="muted">{tr('נחיתה מתוכננת (שעון מקומי)')}</span><span className="strong">{hhmm(f.arrival.scheduled)}</span></div>}
+                <div className="row"><span className="muted">{f.arrival.actual ? tr('נחיתה בפועל') : f.arrival.estimatedByUs ? tr('נחיתה משוערת (לפי המרחק, שעון מקומי)') : tr('נחיתה צפויה')}</span>
                   <span className="strong" style={{ color: 'var(--good)' }}>
                     {approx(f.arrival)}{hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled)}
-                    {!f.arrival.actual && left > 0 ? ` · עוד ${minutesLabel(left)}` : ''}
-                    {early > 0 && !f.arrival.estimatedByUs ? ` · ${early} דק׳ מוקדם` : ''}
+                    {!f.arrival.actual && left > 0 ? ` · ${tr('עוד {time}', { time: minutesLabel(left, tr) })}` : ''}
+                    {early > 0 && !f.arrival.estimatedByUs ? ` · ${tr('{n} דק׳ מוקדם', { n: early })}` : ''}
                   </span>
                 </div>
-                {f.arrival.terminal && <div className="row"><span className="muted">טרמינל נחיתה</span><span className="strong">{f.arrival.terminal}</span></div>}
-                <span className="small muted">{f.source === 'iaa' ? 'נתונים רשמיים מלוח נתב״ג של רשות שדות התעופה' : 'נתונים אמיתיים מ-Aviationstack'} · {agoLabel(now - Date.parse(f.fetchedAt))}</span>
+                {f.arrival.terminal && <div className="row"><span className="muted">{tr('טרמינל נחיתה')}</span><span className="strong">{f.arrival.terminal}</span></div>}
+                <span className="small muted">{f.source === 'iaa' ? tr('נתונים רשמיים מלוח נתב״ג של רשות שדות התעופה') : tr('נתונים אמיתיים מ-Aviationstack')} · {agoLabel(now - Date.parse(f.fetchedAt), tr)}</span>
               </section>
       </>
     );
@@ -716,7 +753,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
               <BoardingPass
                 stamp={stamp}
                 seed={`${f.flight}${f.date}`}
-                label={`כרטיס טיסה ${f.flight} מ-${f.departure.iata} ל-${f.arrival.iata}`}
+                label={tr('כרטיס טיסה {flight} מ-{from} ל-{to}', { flight: f.flight, from: f.departure.iata, to: f.arrival.iata })}
                 front={
                   <>
                     <div className="row">
@@ -732,33 +769,33 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                     <div className="route">
                       <div className="end">
                         <span className="code">{f.departure.iata}</span>
-                        <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.departure)}</span>
-                        <span className="strong" style={{ fontSize: 15 }}>{f.departure.actual ? 'המריאה ' : ''}{approx(f.departure)}{hhmm(f.departure.actual || f.departure.estimated || f.departure.scheduled)}</span>
+                        <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.departure, tr)}</span>
+                        <span className="strong" style={{ fontSize: 15 }}>{f.departure.actual ? `${tr('המריאה')} ` : ''}{approx(f.departure)}{hhmm(f.departure.actual || f.departure.estimated || f.departure.scheduled)}</span>
                       </div>
                       <div className="mid" aria-hidden="true">
-                        <div className="dots" /><div className="plane-dot"><PlaneIcon color="#fff" /></div><div className="dots" />
+                        <div className="dots" /><div className="plane-dot"><PlaneIcon color="#fff" flip={tr.dir === 'rtl'} /></div><div className="dots" />
                       </div>
                       <div className="end left">
                         <span className="code">{f.arrival.iata}</span>
-                        <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.arrival)}</span>
-                        <span className="strong" style={{ fontSize: 15 }}>{f.arrival.actual ? 'נחתה ' : ''}{approx(f.arrival)}{hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled)}</span>
+                        <span className="muted" style={{ fontSize: 13 }}>{cityOf(f.arrival, tr)}</span>
+                        <span className="strong" style={{ fontSize: 15 }}>{f.arrival.actual ? `${tr('נחתה')} ` : ''}{approx(f.arrival)}{hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled)}</span>
                       </div>
                     </div>
                     <div className="tiles" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-                      <div className="tile"><span className="label">טרמינל</span><span className="value">{f.departure.terminal || f.arrival.terminal || '—'}</span></div>
-                      <div className="tile"><span className="label">שער</span>{f.departure.gate ? <span className="value">{f.departure.gate}</span> : (fs.departed || f.source === 'iaa') ? <span className="value" style={{ color: '#8AA0B8' }}>—</span> : <span className="soon">בקרוב</span>}</div>
-                      <div className="tile"><span className="label">מושב</span><span className="value" style={{ color: seat ? 'var(--ink)' : '#8AA0B8' }}>{seat || '—'}</span></div>
-                      <div className="tile"><span className="label">עלייה*</span><span className="value">{(!f.departure.estimatedByUs && boarding) || '—'}</span></div>
+                      <div className="tile"><span className="label">{tr('טרמינל')}</span><span className="value">{f.departure.terminal || f.arrival.terminal || '—'}</span></div>
+                      <div className="tile"><span className="label">{tr('שער')}</span>{f.departure.gate ? <span className="value">{f.departure.gate}</span> : (fs.departed || f.source === 'iaa') ? <span className="value" style={{ color: '#8AA0B8' }}>—</span> : <span className="soon">{tr('בקרוב')}</span>}</div>
+                      <div className="tile"><span className="label">{tr('מושב')}</span><span className="value" style={{ color: seat ? 'var(--ink)' : '#8AA0B8' }}>{seat || '—'}</span></div>
+                      <div className="tile"><span className="label">{tr('עלייה*')}</span><span className="value">{(!f.departure.estimatedByUs && boarding) || '—'}</span></div>
                     </div>
-                    {f.departure.checkin && <span className="strong" style={{ fontSize: 14, marginTop: -6 }}>דלפקי צ׳ק-אין: {f.departure.checkin}{f.departure.checkinZone ? ` · אזור ${f.departure.checkinZone}` : ''}</span>}
+                    {f.departure.checkin && <span className="strong" style={{ fontSize: 14, marginTop: -6 }}>{tr('דלפקי צ׳ק-אין: {desks}', { desks: f.departure.checkin })}{f.departure.checkinZone ? ` · ${tr('אזור {zone}', { zone: f.departure.checkinZone })}` : ''}</span>}
                     {csLine && <span className="cs-callout">✈️ {csLine}</span>}
-                    <span className="small muted" style={{ marginTop: -8 }}>* שעת עלייה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.{(f.departure.estimatedByUs || f.arrival.estimatedByUs) ? ' שעת הנחיתה ביעד היא הערכה שלנו לפי המרחק.' : ''}</span>
+                    <span className="small muted" style={{ marginTop: -8 }}>{tr('* שעת עלייה משוערת, כ-40 דק׳ לפני ההמראה. השעה הקובעת היא זו שבכרטיס שלך.')}{(f.departure.estimatedByUs || f.arrival.estimatedByUs) ? ` ${tr('שעת הנחיתה ביעד היא הערכה שלנו לפי המרחק.')}` : ''}</span>
                   </>
                 }
                 back={
                   <>
                     <div className="row">
-                      <span className="strong" style={{ fontSize: 17 }}>פרטי הטיסה</span>
+                      <span className="strong" style={{ fontSize: 17 }}>{tr('פרטי הטיסה')}</span>
                       <AirlineLogo iata={airIata(f)} name={f.airline} size={26} />
                     </div>
                     {(() => {
@@ -771,27 +808,27 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                       const km = a && b ? Math.round(distanceKm(a[0], a[1], b[0], b[1]) / 10) * 10 : null;
                       return (
                         <div className="tiles" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-                          <div className="tile"><span className="label">{f.departure.actual ? 'המריאה' : 'המראה'}{f.departure.estimatedByUs ? ' (הערכה)' : ''}</span><span className="value" style={{ fontSize: 19 }}>{depT || '—'}</span></div>
-                          <div className="tile"><span className="label">{f.arrival.actual ? 'נחתה' : 'נחיתה'}{f.arrival.estimatedByUs ? ' (הערכה)' : ''}</span><span className="value" style={{ fontSize: 19 }}>{arrT || '—'}</span></div>
-                          {dur ? <div className="tile"><span className="label">משך הטיסה</span><span className="value" style={{ fontSize: 19 }}>{minutesLabel(dur)}</span></div> : null}
-                          {km ? <div className="tile"><span className="label">מרחק</span><span className="value" style={{ fontSize: 19 }}>{km.toLocaleString('he-IL')} ק״מ</span></div> : null}
+                          <div className="tile"><span className="label">{f.departure.actual ? tr('המריאה') : tr('המראה')}{f.departure.estimatedByUs ? ` ${tr('(הערכה)')}` : ''}</span><span className="value" style={{ fontSize: 19 }}>{depT || '—'}</span></div>
+                          <div className="tile"><span className="label">{f.arrival.actual ? tr('נחתה') : tr('נחיתה')}{f.arrival.estimatedByUs ? ` ${tr('(הערכה)')}` : ''}</span><span className="value" style={{ fontSize: 19 }}>{arrT || '—'}</span></div>
+                          {dur ? <div className="tile"><span className="label">{tr('משך הטיסה')}</span><span className="value" style={{ fontSize: 19 }}>{minutesLabel(dur, tr)}</span></div> : null}
+                          {km ? <div className="tile"><span className="label">{tr('מרחק')}</span><span className="value" style={{ fontSize: 19 }}>{tr('{km} ק״מ', { km: km.toLocaleString(tr.locale) })}</span></div> : null}
                         </div>
                       );
                     })()}
-                    <span className="small muted" style={{ marginTop: -4 }}>השעות בשעון המקומי של כל שדה.</span>
+                    <span className="small muted" style={{ marginTop: -4 }}>{tr('השעות בשעון המקומי של כל שדה.')}</span>
                     <div className="row" style={{ marginTop: 4 }}>
-                      <span className="strong">המטוס</span>
-                      <span style={{ fontWeight: 800 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : f.aircraft?.registration ? f.aircraft.registration : 'יזוהה כשהמטוס באוויר'}</span>
+                      <span className="strong">{tr('המטוס')}</span>
+                      <span style={{ fontWeight: 800 }}>{f.aircraft?.type ? aircraftName(f.aircraft.type, tr) : f.aircraft?.registration ? f.aircraft.registration : tr('יזוהה כשהמטוס באוויר')}</span>
                     </div>
-                    {f.aircraft?.type && f.aircraft?.registration && <span className="muted" style={{ marginTop: -6 }}>רישום: {f.aircraft.registration}</span>}
+                    {f.aircraft?.type && f.aircraft?.registration && <span className="muted" style={{ marginTop: -6 }}>{tr('רישום: {reg}', { reg: f.aircraft.registration })}</span>}
                     {typeInfo && (
                       <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                        <div className="tile"><span className="label">אורך</span><span className="value" style={{ fontSize: 17 }}>{typeInfo.lengthM} מ׳</span></div>
-                        <div className="tile"><span className="label">מוטת כנפיים</span><span className="value" style={{ fontSize: 17 }}>{typeInfo.spanM} מ׳</span></div>
-                        <div className="tile"><span className="label">תצורה</span><span className="value" style={{ fontSize: 17, direction: 'ltr', textAlign: 'right' }}>{typeInfo.layout}</span></div>
+                        <div className="tile"><span className="label">{tr('אורך')}</span><span className="value" style={{ fontSize: 17 }}>{tr('{n} מ׳', { n: typeInfo.lengthM })}</span></div>
+                        <div className="tile"><span className="label">{tr('מוטת כנפיים')}</span><span className="value" style={{ fontSize: 17 }}>{tr('{n} מ׳', { n: typeInfo.spanM })}</span></div>
+                        <div className="tile"><span className="label">{tr('תצורה')}</span><span className="value" style={{ fontSize: 17, direction: 'ltr', textAlign: tr.dir === 'rtl' ? 'right' : 'left' }}>{typeInfo.layout}</span></div>
                       </div>
                     )}
-                    {seat && typeInfo && seatSide(seat, typeInfo.layout) && <span className="strong" style={{ color: 'var(--good)' }}>מושב {seat}: {seatSide(seat, typeInfo.layout).text}</span>}
+                    {seat && typeInfo && seatSide(seat, typeInfo.layout, tr) && <span className="strong" style={{ color: 'var(--good)' }}>{tr('מושב {seat}: {side}', { seat, side: seatSide(seat, typeInfo.layout, tr).text })}</span>}
                     {typeInfo?.fact && <span style={{ fontSize: 14, lineHeight: 1.55 }}>✦ {typeInfo.fact}</span>}
                   </>
                 }
@@ -821,7 +858,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
   }
 
   const theme = skyTheme(f?.arrival?.timezone || 'Asia/Jerusalem', now);
-  const destName = hasFlight && f.arrival.iata ? cityOf(f.arrival) : 'ישראל';
+  const destName = hasFlight && f.arrival.iata ? cityOf(f.arrival, tr) : tr('ישראל');
 
   return (
     <>
@@ -829,12 +866,12 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
         <Sky theme={theme} flyer />
         <span className="pill">{pill} ✦</span>
         <h1>{title}</h1>
-        {theme.clock && <p style={{ fontSize: 14, opacity: 0.9 }}>עכשיו {theme.name} ב{destName} · {theme.clock}</p>}
+        {theme.clock && <p style={{ fontSize: 14, opacity: 0.9 }}>{tr('עכשיו {part} ב{city}', { part: tr.raw(theme.name), city: destName })} · {theme.clock}</p>}
         {hasFlight && !editing && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" className="btn-dark" onClick={() => setEditing(true)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
-            שנה טיסה או תאריך
+            {tr('שנה טיסה או תאריך')}
           </button>
             {!f.liveOnly && <ShareButton f={f} />}
           </div>
@@ -842,7 +879,7 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
       </header>
 
       <div className="content">
-        {loading && !editing && <section className="card big"><PlaneLoader text="טוען את הטיסה…" /></section>}
+        {loading && !editing && <section className="card big"><PlaneLoader text={tr('טוען את הטיסה…')} /></section>}
         {(editing || (!hasFlight && !loading)) && search}
         {error && <div className="error" role="alert">{error}</div>}
 
@@ -854,25 +891,25 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
                   <AirlineLogo iata={airIata(f)} name={f.airline} size={30} />
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
                     <span className="strong">{f.airline || f.callsign}</span>
-                    <span className="muted small">אות קריאה {f.callsign}</span>
+                    <span className="muted small">{tr('אות קריאה {callsign}', { callsign: f.callsign })}</span>
                   </span>
                 </span>
-                <span className="badge good">{f.live?.isGround ? 'על הקרקע' : 'באוויר'}</span>
+                <span className="badge good">{f.live?.isGround ? tr('על הקרקע') : tr('באוויר')}</span>
               </div>
-              <span style={{ fontSize: 15 }}>{f.aircraft?.type ? (AIRCRAFT[f.aircraft.type] || f.aircraft.type) : 'דגם לא ידוע'}{f.aircraft?.registration ? ` · ${f.aircraft.registration}` : ''}</span>
+              <span style={{ fontSize: 15 }}>{f.aircraft?.type ? aircraftName(f.aircraft.type, tr) : tr('דגם לא ידוע')}{f.aircraft?.registration ? ` · ${f.aircraft.registration}` : ''}</span>
               {f.live && !f.live.isGround && (
                 <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                  <div className="tile"><span className="label">גובה</span><span className="value" style={{ fontSize: 17 }}>{(Math.round(f.live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')}</span></div>
-                  <div className="tile"><span className="label">מהירות</span><span className="value" style={{ fontSize: 17 }}>{Math.round(f.live.speedKmh)}</span></div>
-                  <div className="tile"><span className="label">מעל</span><span className="value" style={{ fontSize: 15 }}>{f.view?.over?.name || '—'}</span></div>
+                  <div className="tile"><span className="label">{tr('גובה')}</span><span className="value" style={{ fontSize: 17 }}>{(Math.round(f.live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')}</span></div>
+                  <div className="tile"><span className="label">{tr('מהירות')}</span><span className="value" style={{ fontSize: 17 }}>{Math.round(f.live.speedKmh)}</span></div>
+                  <div className="tile"><span className="label">{tr('מעל')}</span><span className="value" style={{ fontSize: 15 }}>{f.view?.over?.name || '—'}</span></div>
                 </div>
               )}
-              <button type="button" className="btn-sun" onClick={goLive} style={{ flex: 'none' }}>למסך בזמן הטיסה ←</button>
+              <button type="button" className="btn-sun" onClick={goLive} style={{ flex: 'none' }}>{tr('למסך בזמן הטיסה')} {GO[tr.dir]}</button>
             </section>
             <div className="card cream" role="status" style={{ fontSize: 14, lineHeight: 1.55 }}>
               {f.liveOnlyReason === 'callsign'
-                ? 'זה אות קריאה של מטוס ולא מספר טיסה, אז יש לנו רק מיקום חי, בלי זמנים, שער או יעד. כדי לראות את כל הפרטים, חפש לפי מספר הטיסה שבכרטיס.'
-                : 'שירות הזמנים לא זמין כרגע, אז מוצג רק המיקום החי של המטוס, בלי זמנים, שער או יעד.'}
+                ? tr('זה אות קריאה של מטוס ולא מספר טיסה, אז יש לנו רק מיקום חי, בלי זמנים, שער או יעד. כדי לראות את כל הפרטים, חפש לפי מספר הטיסה שבכרטיס.')
+                : tr('שירות הזמנים לא זמין כרגע, אז מוצג רק המיקום החי של המטוס, בלי זמנים, שער או יעד.')}
             </div>
           </>
         )}
@@ -881,15 +918,15 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
           <>
             {f.stale && (
               <div className="card cream" role="status" style={{ fontSize: 14 }}>
-                שירות הזמנים לא זמין כרגע, אז מוצגים הנתונים האחרונים ששמרנו ({agoLabel(now - Date.parse(f.fetchedAt))}). המיקום החי ממשיך להתעדכן.
+                {tr('שירות הזמנים לא זמין כרגע, אז מוצגים הנתונים האחרונים ששמרנו ({ago}). המיקום החי ממשיך להתעדכן.', { ago: agoLabel(now - Date.parse(f.fetchedAt), tr) })}
               </div>
             )}
             <AirlineAlert f={f} goStatus={goStatus} />
             {changes && (
               <section className="card change-alert" role="status">
                 <div className="row">
-                  <span className="strong">🔔 עדכון חדש מנתב״ג</span>
-                  <button type="button" onClick={clearChanges} aria-label="סגור" style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'inherit' }}>✕</button>
+                  <span className="strong">{tr('🔔 עדכון חדש מנתב״ג')}</span>
+                  <button type="button" onClick={clearChanges} aria-label={tr('סגור')} style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'inherit' }}>✕</button>
                 </div>
                 {changes.items.map((x) => <span key={x} style={{ fontSize: 15, fontWeight: 700 }}>{x}</span>)}
               </section>
@@ -907,11 +944,12 @@ function FlightsTab({ f, now, editing, setEditing, search, error, changes, clear
 }
 
 function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
+  const tr = useT();
   if (!f) {
     return (
       <>
-        <header className="hero short"><h1>בזמן הטיסה</h1></header>
-        <div className="content flat"><div className="card">חפש טיסה בלשונית "טיסות" כדי לראות כאן נתונים חיים.</div></div>
+        <header className="hero short"><h1>{tr('בזמן הטיסה')}</h1></header>
+        <div className="content flat"><div className="card">{tr('חפש טיסה בלשונית "טיסות" כדי לראות כאן נתונים חיים.')}</div></div>
       </>
     );
   }
@@ -926,8 +964,8 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
   let mySide = null;
   try {
     const seat = localStorage.getItem('kanaf:seat');
-    const info = TYPE_INFO[f.aircraft?.type];
-    mySide = seatSide(seat, info ? info.layout : '3-3')?.side || null;
+    const info = getTypeInfo(f.aircraft?.type, tr);
+    mySide = seatSide(seat, info ? info.layout : '3-3', tr)?.side || null;
   } catch {}
 
   let phase = 0;
@@ -944,15 +982,15 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
     }
   }
   const depTime = hhmm(f.departure.actual || f.departure.estimated || f.departure.scheduled);
-  const phaseNames = ['המראה', 'טיפוס', 'שיוט', 'ירידה', 'נחיתה'];
+  const phaseNames = [tr('המראה'), tr('טיפוס'), tr('שיוט'), tr('ירידה'), tr('נחיתה')];
   const phaseText = [
-    `המטוס עוד על הקרקע. ההמראה מתוכננת ל-${depTime}.`,
-    'המטוס מטפס לגובה השיוט. המנועים עובדים חזק, וזה רגיל לגמרי.',
-    'הטייס האוטומטי מחזיק גובה ומהירות קבועים. שינויים קלים ברעש המנועים הם תיקונים רגילים.',
-    'המטוס יורד בהדרגה ומאט. לחץ קל באוזניים הוא רגיל, ובליעה או פיהוק עוזרים.',
-    'נחתת. ברוך הבא!'
+    tr('המטוס עוד על הקרקע. ההמראה מתוכננת ל-{time}.', { time: depTime }),
+    tr('המטוס מטפס לגובה השיוט. המנועים עובדים חזק, וזה רגיל לגמרי.'),
+    tr('הטייס האוטומטי מחזיק גובה ומהירות קבועים. שינויים קלים ברעש המנועים הם תיקונים רגילים.'),
+    tr('המטוס יורד בהדרגה ומאט. לחץ קל באוזניים הוא רגיל, ובליעה או פיהוק עוזרים.'),
+    tr('נחתת. ברוך הבא!')
   ];
-  const title = landed ? `${f.flight} נחתה` : departed ? `${f.flight} בשמיים!` : `${f.flight} לפני המראה`;
+  const title = landed ? tr('{flight} נחתה', { flight: f.flight }) : departed ? tr('{flight} בשמיים!', { flight: f.flight }) : tr('{flight} לפני המראה', { flight: f.flight });
 
   const liveTheme = skyTheme(f.arrival?.timezone || 'Asia/Jerusalem', now);
   // נקודה על קשת המסלול
@@ -965,9 +1003,9 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
         <Sky theme={liveTheme} />
         <div className="row">
           <h1 style={{ fontSize: 30, display: 'flex', alignItems: 'center', gap: 10 }}><AirlineLogo iata={airIata(f)} name={f.airline} size={30} />{title}</h1>
-          <span className="pill">{agoLabel(now - Date.parse(live?.updated || f.fetchedAt))}</span>
+          <span className="pill">{agoLabel(now - Date.parse(live?.updated || f.fetchedAt), tr)}</span>
         </div>
-        <svg width="100%" height="100" viewBox="0 0 350 100" style={{ position: 'relative', overflow: 'visible' }} role="img" aria-label={`התקדמות הטיסה: ${Math.round(progress * 100)} אחוז`}>
+        <svg width="100%" height="100" viewBox="0 0 350 100" style={{ position: 'relative', overflow: 'visible', transform: tr.dir === 'ltr' ? 'scaleX(-1)' : undefined }} role="img" aria-label={tr('התקדמות הטיסה: {n} אחוז', { n: Math.round(progress * 100) })}>
           <path d="M330 84 Q175 -14 20 84" fill="none" stroke="#fff" strokeWidth="3" strokeDasharray="2 8" strokeLinecap="round" />
           <path d="M330 84 Q175 -14 20 84" pathLength="100" strokeDasharray={`${progress * 100} 100`} fill="none" stroke={liveTheme.ink} strokeWidth="4" strokeLinecap="round" style={{ transition: 'stroke-dasharray 2s ease-in-out' }} />
           <circle cx="330" cy="84" r="7" fill={liveTheme.ink} />
@@ -980,54 +1018,54 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
       <div className="content flat">
         <section className="card" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span className="small muted">סטטוס</span>
-            <span style={{ fontSize: 22, fontWeight: 800 }}>{statusOf(f).text}</span>
+            <span className="small muted">{tr('סטטוס')}</span>
+            <span style={{ fontSize: 22, fontWeight: 800 }}>{statusOf(f, tr).text}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
-            <span className="small muted">{departed && !landed ? 'נותרו' : landed ? 'שעת נחיתה' : 'המראה מתוכננת'}</span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral-ink)' }}>{landed ? (hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled) || '—') : departed ? (left == null ? '—' : left > 0 ? minutesLabel(left) : 'עוד רגע') : (depTime || '—')}</span>
+            <span className="small muted">{departed && !landed ? tr('נותרו') : landed ? tr('שעת נחיתה') : tr('המראה מתוכננת')}</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral-ink)' }}>{landed ? (hhmm(f.arrival.actual || f.arrival.estimated || f.arrival.scheduled) || '—') : departed ? (left == null ? '—' : left > 0 ? minutesLabel(left, tr) : tr('עוד רגע')) : (depTime || '—')}</span>
           </div>
         </section>
 
         {f.view?.over && (
           <section className="card big" style={{ gap: 6 }}>
-            <span className="small muted">{f.viewEstimated ? 'בערך מעל' : live && !live.isGround ? 'אתה עכשיו מעל' : 'המטוס נמצא ב'}</span>
+            <span className="small muted">{f.viewEstimated ? tr('בערך מעל') : live && !live.isGround ? tr('אתה עכשיו מעל') : tr('המטוס נמצא ב')}</span>
             <span style={{ fontSize: 26, fontWeight: 800 }}>{f.view.over.name}</span>
-            {f.viewEstimated && <span className="small muted">הערכה לפי הזמן שעבר מההמראה ולפי המסלול הקצר. אין כרגע קליטה של המשדר של המטוס באזור הזה.</span>}
+            {f.viewEstimated && <span className="small muted">{tr('הערכה לפי הזמן שעבר מההמראה ולפי המסלול הקצר. אין כרגע קליטה של המשדר של המטוס באזור הזה.')}</span>}
           </section>
         )}
 
         {f.view?.left && f.view?.right && (
           <section className="card mint">
-            <h2>מה רואים מהחלון</h2>
-            {[['שמאל', f.view.left, true, 'left'], ['ימין', f.view.right, false, 'right']].map(([label, s, dark, sideKey]) => (
+            <h2>{tr('מה רואים מהחלון')}</h2>
+            {[[tr('שמאל'), f.view.left, true, 'left'], [tr('ימין'), f.view.right, false, 'right']].map(([label, s, dark, sideKey]) => (
               <div key={label} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span className="badge" style={{ background: dark ? 'var(--ink)' : '#fff', color: dark ? '#fff' : 'var(--ink)', flexShrink: 0 }}>{label}{mySide === sideKey ? ' · הצד שלך' : ''}</span>
+                <span className="badge" style={{ background: dark ? 'var(--ink)' : '#fff', color: dark ? '#fff' : 'var(--ink)', flexShrink: 0 }}>{label}{mySide === sideKey ? ` · ${tr('הצד שלך')}` : ''}</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 14, lineHeight: 1.5 }}>
                   <span className="strong">{s.area.name}</span>
                   {s.sights.length > 0
-                    ? s.sights.map((x) => <span key={x.name}>{x.name} · כ-{x.km} ק״מ</span>)
-                    : <span className="muted">אין נקודות ציון מוכרות בטווח הראייה</span>}
+                    ? s.sights.map((x) => <span key={x.name}>{x.name} · {tr('כ-{km} ק״מ', { km: x.km })}</span>)
+                    : <span className="muted">{tr('אין נקודות ציון מוכרות בטווח הראייה')}</span>}
                 </div>
               </div>
             ))}
-            <span className="small muted">טווח ראייה מהגובה הנוכחי: עד כ-{f.view.visibleKm} ק״מ, אם אין עננים. מושב A הוא בדרך כלל חלון בצד שמאל.</span>
+            <span className="small muted">{tr('טווח ראייה מהגובה הנוכחי: עד כ-{km} ק״מ, אם אין עננים. מושב A הוא בדרך כלל חלון בצד שמאל.', { km: f.view.visibleKm })}</span>
           </section>
         )}
 
         {liveLoading && !live ? (
-          <section className="card"><PlaneLoader text="מחפש את המטוס באוויר…" /></section>
+          <section className="card"><PlaneLoader text={tr('מחפש את המטוס באוויר…')} /></section>
         ) : live && !live.isGround ? (
           <div className="tiles two">
-            <div className="tile"><span className="label">גובה</span><span className="value">{(Math.round(live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')} רגל</span><span className="small muted">כ-{(live.altitudeM / 1000).toFixed(1)} ק״מ</span></div>
-            <div className="tile"><span className="label">מהירות קרקע</span><span className="value">{Math.round(live.speedKmh)} קמ״ש</span></div>
-            <div className="tile"><span className="label">כיוון טיסה</span><span className="value">{Math.round(live.direction)}°</span></div>
+            <div className="tile"><span className="label">{tr('גובה')}</span><span className="value">{tr('{ft} רגל', { ft: (Math.round(live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US') })}</span><span className="small muted">{tr('כ-{km} ק״מ', { km: (live.altitudeM / 1000).toFixed(1) })}</span></div>
+            <div className="tile"><span className="label">{tr('מהירות קרקע')}</span><span className="value">{tr('{n} קמ״ש', { n: Math.round(live.speedKmh) })}</span></div>
+            <div className="tile"><span className="label">{tr('כיוון טיסה')}</span><span className="value">{Math.round(live.direction)}°</span></div>
             {typeof live.outsideC === 'number'
-              ? <div className="tile"><span className="label">טמפרטורה בחוץ</span><span className="value">{'\u200e'}{Math.round(live.outsideC)}°C</span></div>
-              : <div className="tile"><span className="label">מיקום</span><span className="value" style={{ fontSize: 16 }}>{live.latitude.toFixed(2)}°, {live.longitude.toFixed(2)}°</span></div>}
+              ? <div className="tile"><span className="label">{tr('טמפרטורה בחוץ')}</span><span className="value">{'\u200e'}{Math.round(live.outsideC)}°C</span></div>
+              : <div className="tile"><span className="label">{tr('מיקום')}</span><span className="value" style={{ fontSize: 16 }}>{live.latitude.toFixed(2)}°, {live.longitude.toFixed(2)}°</span></div>}
           </div>
         ) : (
-          <div className="card cream">{landed ? 'הטיסה נחתה.' : departed ? (f.viewEstimated ? 'אין כרגע קליטה של המטוס. מעל ירדן, סעודיה והמפרץ יש מעט קולטנים, אז שם המיקום מוצג כהערכה. הוא יתעדכן לבד כשהמטוס ייקלט שוב.' : 'המטוס באוויר, אבל כרגע הוא מחוץ לטווח של קולטני המיקום. בחלק מהמסלולים, למשל מעל סעודיה, המפרץ והאוקיינוס ההודי, כמעט אין קליטה. המיקום יופיע לבד כשהמטוס ייקלט שוב.') : 'המיקום החי יופיע אחרי ההמראה.'}</div>
+          <div className="card cream">{landed ? tr('הטיסה נחתה.') : departed ? (f.viewEstimated ? tr('אין כרגע קליטה של המטוס. מעל ירדן, סעודיה והמפרץ יש מעט קולטנים, אז שם המיקום מוצג כהערכה. הוא יתעדכן לבד כשהמטוס ייקלט שוב.') : tr('המטוס באוויר, אבל כרגע הוא מחוץ לטווח של קולטני המיקום. בחלק מהמסלולים, למשל מעל סעודיה, המפרץ והאוקיינוס ההודי, כמעט אין קליטה. המיקום יופיע לבד כשהמטוס ייקלט שוב.')) : tr('המיקום החי יופיע אחרי ההמראה.')}</div>
         )}
 
         <section className="card">
@@ -1036,25 +1074,26 @@ function LiveTab({ f, now, onRefresh, loading, liveLoading }) {
               <div key={n} className={`phase ${i < phase ? 'done' : ''} ${i === phase ? 'now' : ''}`}><div />{n}</div>
             ))}
           </div>
-          <span className="strong">עכשיו: {phase === 0 ? 'לפני המראה' : phaseNames[phase]}{phaseEstimated ? ' (הערכה לפי הזמן)' : ''}</span>
+          <span className="strong">{tr('עכשיו: {phase}', { phase: phase === 0 ? tr('לפני המראה') : phaseNames[phase] })}{phaseEstimated ? ` ${tr('(הערכה לפי הזמן)')}` : ''}</span>
           <span className="muted" style={{ fontSize: 14, lineHeight: 1.55 }}>{phaseText[phase]}</span>
         </section>
 
-        <button type="button" className="btn-sun" onClick={onRefresh} disabled={loading} style={{ flex: 'none' }}>{loading ? 'מרענן…' : 'רענן נתונים'}</button>
-        <p className="small muted" style={{ margin: 0 }}>הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות. {f.liveSource === 'adsb' ? 'המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל כמה דקות, ובסוף הטיסה כל דקה.' : 'הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.'}
-          {f.broadcastCallsign && f.callsign && f.broadcastCallsign !== f.callsign ? ` המטוס משדר כ-${f.broadcastCallsign}${f.matchedByRoute ? ', וזיהינו אותו לפי החברה וכיוון הטיסה' : ''}.` : ''}</p>
+        <button type="button" className="btn-sun" onClick={onRefresh} disabled={loading} style={{ flex: 'none' }}>{loading ? tr('מרענן…') : tr('רענן נתונים')}</button>
+        <p className="small muted" style={{ margin: 0 }}>{tr('הזמן שנותר מחושב לפי שעת הנחיתה הצפויה ומתעדכן כל 30 שניות.')} {f.liveSource === 'adsb' ? tr('המיקום החי מגיע בזמן אמת מרשת ADS-B (adsb.lol) ומתעדכן כל כמה דקות, ובסוף הטיסה כל דקה.') : tr('הנתונים מהמקור מתעדכנים בכל רענון, בהפרש של כמה דקות.')}
+          {f.broadcastCallsign && f.callsign && f.broadcastCallsign !== f.callsign ? ` ${f.matchedByRoute ? tr('המטוס משדר כ-{callsign}, וזיהינו אותו לפי החברה וכיוון הטיסה.', { callsign: f.broadcastCallsign }) : tr('המטוס משדר כ-{callsign}.', { callsign: f.broadcastCallsign })}` : ''}</p>
       </div>
     </>
   );
 }
 
 function SeatMap({ layout, seat }) {
+  const tr = useT();
   const blocks = seatBlocks(layout);
-  const mine = seatSide(seat, layout);
+  const mine = seatSide(seat, layout, tr);
   const rows = 8;
   const wingRows = [3, 4, 5];
   return (
-    <div role="img" aria-label={`תרשים מושבים טיפוסי בתצורה ${layout}`} style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', direction: 'ltr' }}>
+    <div role="img" aria-label={tr('תרשים מושבים טיפוסי בתצורה {layout}', { layout })} style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', direction: 'ltr' }}>
       <div style={{ display: 'flex', gap: 14 }}>
         {blocks.map((b, i) => (
           <div key={i} style={{ display: 'flex', gap: 4 }}>
@@ -1076,22 +1115,23 @@ function SeatMap({ layout, seat }) {
         </div>
       ))}
       <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: 12, color: 'var(--muted)', direction: 'rtl' }}>
-        <span>צד ימין</span><span>↑ חרטום המטוס</span><span>צד שמאל</span>
+        <span>{tr('צד ימין')}</span><span>{tr('↑ חרטום המטוס')}</span><span>{tr('צד שמאל')}</span>
       </div>
     </div>
   );
 }
 
 function WhereIsPlane({ f, inbound, now }) {
+  const tr = useT();
   const reg = f?.aircraft?.registration;
   if (!reg) return null;
   const { departed, landed } = flightState(f);
   if (departed && !landed && f.live && !f.live.isGround) {
     return (
       <section className="card mint">
-        <h2>איפה המטוס עכשיו</h2>
-        <span className="strong">המטוס בטיסה שלך, {f.flight}</span>
-        <span style={{ fontSize: 14 }}>{f.view?.over?.name ? `מעל ${f.view.over.name} · ` : ''}{(Math.round(f.live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US')} רגל · {Math.round(f.live.speedKmh)} קמ״ש</span>
+        <h2>{tr('איפה המטוס עכשיו')}</h2>
+        <span className="strong">{tr('המטוס בטיסה שלך, {flight}', { flight: f.flight })}</span>
+        <span style={{ fontSize: 14 }}>{f.view?.over?.name ? `${tr('מעל {place}', { place: f.view.over.name })} · ` : ''}{tr('{ft} רגל', { ft: (Math.round(f.live.altitudeM * 3.28084 / 100) * 100).toLocaleString('en-US') })} · {tr('{n} קמ״ש', { n: Math.round(f.live.speedKmh) })}</span>
       </section>
     );
   }
@@ -1131,6 +1171,7 @@ async function loadPhoto(reg, hex) {
 }
 
 function AircraftPhoto({ reg, hex }) {
+  const tr = useT();
   const [photo, setPhoto] = useState(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -1140,49 +1181,50 @@ function AircraftPhoto({ reg, hex }) {
     loadPhoto(reg, hex).then((b) => { if (!stop) setPhoto(b); });
     return () => { stop = true; };
   }, [reg, hex]);
-  if (reg && !photo) return <section className="card" style={{ minHeight: 160, justifyContent: 'center' }}><PlaneLoader text="מחפש תמונה של המטוס…" /></section>;
+  if (reg && !photo) return <section className="card" style={{ minHeight: 160, justifyContent: 'center' }}><PlaneLoader text={tr('מחפש תמונה של המטוס…')} /></section>;
   if (!reg || !photo?.found || failed) return null;
   return (
     <figure className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', gap: 0 }}>
       <img
         src={photo.src}
-        alt={`המטוס ${reg}${photo.photographer ? `, צילום: ${photo.photographer}` : ''}`}
+        alt={photo.photographer ? tr('המטוס {reg}, צילום: {by}', { reg, by: photo.photographer }) : tr('המטוס {reg}', { reg })}
         width={photo.width || undefined}
         height={photo.height || undefined}
         onError={() => setFailed(true)}
         style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '3 / 2', objectFit: 'cover', background: '#DCEFFB' }}
       />
       <figcaption style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-        <span>המטוס האמיתי, {reg}</span>
+        <span>{tr('המטוס האמיתי, {reg}', { reg })}</span>
         {photo.link
-          ? <a href={photo.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--coral-ink)' }}>© {photo.photographer || 'צלם'} / Planespotters.net</a>
-          : <span>© {photo.photographer || 'צלם'} / Planespotters.net</span>}
+          ? <a href={photo.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--coral-ink)' }}>© {photo.photographer || tr('צלם')} / Planespotters.net</a>
+          : <span>© {photo.photographer || tr('צלם')} / Planespotters.net</span>}
       </figcaption>
     </figure>
   );
 }
 
 function AircraftTab({ f, back, inbound, now }) {
+  const tr = useT();
   const type = f?.aircraft?.type;
-  const info = type ? TYPE_INFO[type] : null;
+  const info = type ? getTypeInfo(type, tr) : null;
   const [seat, setSeat] = useState('');
   useEffect(() => { try { setSeat(localStorage.getItem('kanaf:seat') || ''); } catch {} }, []);
   const saveSeat = (v) => { const x = v.toUpperCase().replace(/\s+/g, ''); setSeat(x); try { localStorage.setItem('kanaf:seat', x); } catch {} };
-  const mine = info ? seatSide(seat, info.layout) : null;
+  const mine = info ? seatSide(seat, info.layout, tr) : null;
 
   return (
     <>
       <header className="hero peach short">
         <div className="sun" style={{ opacity: 0.85 }} aria-hidden="true" />
-        <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 15 }}>→ לטיסה שלי</button>
+        <button type="button" className="pill" onClick={back} style={{ border: 'none', cursor: 'pointer', fontSize: 15 }}>{BACK[tr.dir]} {tr('לטיסה שלי')}</button>
         <div style={{ height: 110, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="110" height="110" viewBox="0 0 24 24" fill="#fff" stroke="#0E2A47" strokeWidth="0.7" style={{ transform: 'rotate(-35deg)' }} aria-hidden="true">
             <path d="M12 2c.9 0 1.5 1.2 1.5 3v4.5l8 4.5v2l-8-2.5V18l2.5 2v1.5L12 20.5l-4 1V20l2.5-2v-4.5l-8 2.5v-2l8-4.5V5c0-1.8.6-3 1.5-3z" />
           </svg>
         </div>
         {f && <AirlineLogo iata={airIata(f)} name={f.airline} size={34} />}
-        <h1 style={{ fontSize: 28 }}>{type ? (AIRCRAFT[type] || type) : 'המטוס שלך'}</h1>
-        <p style={{ color: '#4A2212' }}>{f?.airline ? `${f.airline} · ` : ''}{f?.aircraft?.registration ? `רישום: ${f.aircraft.registration}` : 'הרישום יופיע כשחברת התעופה תשבץ מטוס'}{info ? ` · ${info.body}` : ''}</p>
+        <h1 style={{ fontSize: 28 }}>{type ? aircraftName(type, tr) : tr('המטוס שלך')}</h1>
+        <p style={{ color: '#4A2212' }}>{f?.airline ? `${f.airline} · ` : ''}{f?.aircraft?.registration ? tr('רישום: {reg}', { reg: f.aircraft.registration }) : tr('הרישום יופיע כשחברת התעופה תשבץ מטוס')}{info ? ` · ${info.body}` : ''}</p>
       </header>
       <div className="content flat">
         <AircraftPhoto reg={f?.aircraft?.registration} hex={f?.aircraft?.hex} />
@@ -1191,37 +1233,37 @@ function AircraftTab({ f, back, inbound, now }) {
         {info ? (
           <>
             <div className="tiles two">
-              <div className="tile"><span className="label">אורך</span><span className="value">{info.lengthM} מ׳</span></div>
-              <div className="tile"><span className="label">מוטת כנפיים</span><span className="value">{info.spanM} מ׳</span></div>
-              <div className="tile"><span className="label">טיסה ראשונה של הדגם</span><span className="value">{info.firstFlight}</span></div>
-              <div className="tile"><span className="label">תצורה טיפוסית</span><span className="value" style={{ direction: 'ltr', textAlign: 'right' }}>{info.layout}</span></div>
+              <div className="tile"><span className="label">{tr('אורך')}</span><span className="value">{tr('{n} מ׳', { n: info.lengthM })}</span></div>
+              <div className="tile"><span className="label">{tr('מוטת כנפיים')}</span><span className="value">{tr('{n} מ׳', { n: info.spanM })}</span></div>
+              <div className="tile"><span className="label">{tr('טיסה ראשונה של הדגם')}</span><span className="value">{info.firstFlight}</span></div>
+              <div className="tile"><span className="label">{tr('תצורה טיפוסית')}</span><span className="value" style={{ direction: 'ltr', textAlign: tr.dir === 'rtl' ? 'right' : 'left' }}>{info.layout}</span></div>
             </div>
 
             <section className="card cream">
-              <span className="strong" style={{ color: '#7A5A00' }}>✦ הידעת?</span>
+              <span className="strong" style={{ color: '#7A5A00' }}>{tr('✦ הידעת?')}</span>
               <span style={{ lineHeight: 1.55 }}>{info.fact}</span>
             </section>
 
             <section className="card">
-              <h2>איפה אני יושב?</h2>
+              <h2>{tr('איפה אני יושב?')}</h2>
               <div className="field">
-                <label htmlFor="seatNo">מספר המושב שלך</label>
-                <input id="seatNo" value={seat} onChange={(e) => saveSeat(e.target.value)} placeholder="לדוגמה 32A" maxLength={3} />
+                <label htmlFor="seatNo">{tr('מספר המושב שלך')}</label>
+                <input id="seatNo" value={seat} onChange={(e) => saveSeat(e.target.value)} placeholder={tr('לדוגמה 32A')} maxLength={3} />
               </div>
               {mine && (
                 <span className="strong" style={{ fontSize: 16, color: mine.kind === 'window' ? 'var(--good)' : 'var(--ink)' }}>
-                  {seat}: {mine.text}{mine.kind === 'window' ? ' · בלשונית "בטיסה" תראה מה רואים מהצד שלך' : ''}
+                  {seat}: {mine.text}{mine.kind === 'window' ? ` · ${tr('בלשונית "בטיסה" תראה מה רואים מהצד שלך')}` : ''}
                 </span>
               )}
-              {seat && !mine && <span className="muted" style={{ fontSize: 14 }}>לא הצלחנו לזהות את המושב. כתוב מספר שורה ואות, למשל 32A.</span>}
+              {seat && !mine && <span className="muted" style={{ fontSize: 14 }}>{tr('לא הצלחנו לזהות את המושב. כתוב מספר שורה ואות, למשל 32A.')}</span>}
               <SeatMap layout={info.layout} seat={seat} />
-              <span className="small muted">תרשים כללי של תצורה {info.layout}, לא המפה של חברת התעופה שלך. הפס הכחול מסמן בערך את אזור הכנף. החברות משנות את מספר השורות ואת האותיות, אבל A הוא כמעט תמיד חלון בצד שמאל.</span>
-              <a href="https://www.aerolopa.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)' }}>מפת מושבים מדויקת לפי חברת תעופה (aeroLOPA) ←</a>
+              <span className="small muted">{tr('תרשים כללי של תצורה {layout}, לא המפה של חברת התעופה שלך. הפס הכחול מסמן בערך את אזור הכנף. החברות משנות את מספר השורות ואת האותיות, אבל A הוא כמעט תמיד חלון בצד שמאל.', { layout: info.layout })}</span>
+              <a href="https://www.aerolopa.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral-ink)' }}>{tr('מפת מושבים מדויקת לפי חברת תעופה (aeroLOPA)')} {GO[tr.dir]}</a>
             </section>
           </>
         ) : (
           <section className="card cream">
-            <span style={{ lineHeight: 1.55 }}>{type ? 'אין לנו עדיין נתונים על הדגם הזה.' : 'כשחברת התעופה תשבץ מטוס לטיסה, יופיעו כאן הדגם, הנתונים ותרשים המושבים.'}</span>
+            <span style={{ lineHeight: 1.55 }}>{type ? tr('אין לנו עדיין נתונים על הדגם הזה.') : tr('כשחברת התעופה תשבץ מטוס לטיסה, יופיעו כאן הדגם, הנתונים ותרשים המושבים.')}</span>
           </section>
         )}
       </div>
@@ -1230,6 +1272,7 @@ function AircraftTab({ f, back, inbound, now }) {
 }
 
 export default function App() {
+  const tr = useT();
   const [flightNo, setFlightNo] = useState('');
   const [date, setDate] = useState('');
   const [flight, setFlight] = useState(null);
@@ -1251,23 +1294,23 @@ export default function App() {
   const search = useCallback(async (no, d) => {
     setLoading(true); setError('');
     try {
-      const res = await fetch(`/api/flight?flight=${encodeURIComponent(no)}&date=${encodeURIComponent(d)}`);
+      const res = await fetch(apiUrl(tr, `/api/flight?flight=${encodeURIComponent(no)}&date=${encodeURIComponent(d)}`));
       const body = await res.json();
-      if (!res.ok) { setError(body.error || 'משהו השתבש'); }
+      if (!res.ok) { setError(body.error || tr('משהו השתבש')); }
       else {
         setFlight(body); setEditing(false); setChanges(null); loadedAt.current = Date.now();
         // חיפושים אחרונים: עד 3 טיסות, נשמרות רק בטלפון
         try {
-          const label = `${body.flight}${body.arrival?.iata && body.arrival.iata !== 'TLV' ? ` · ${body.arrival.cityHe || body.arrival.iata}` : body.departure?.cityHe ? ` · מ${body.departure.cityHe}` : ''}`;
+          const label = `${body.flight}${body.arrival?.iata && body.arrival.iata !== 'TLV' ? ` · ${body.arrival.cityHe || body.arrival.iata}` : body.departure?.cityHe ? ` · ${tr('מ{city}', { city: body.departure.cityHe })}` : ''}`;
           const list = JSON.parse(localStorage.getItem('kanaf:recent') || '[]').filter((x) => !(x.no === no && x.d === d));
           localStorage.setItem('kanaf:recent', JSON.stringify([{ no, d, label }, ...list].slice(0, 3)));
         } catch {}
       }
     } catch {
-      setError('אין חיבור לאינטרנט');
+      setError(tr('אין חיבור לאינטרנט'));
     }
     setLoading(false);
-  }, []);
+  }, [tr]);
 
   useEffect(() => {
     // כל פתיחה מתחילה במסך "לאן טסים?". רק קישור משותף (?f=) פותח ישר טיסה
@@ -1291,17 +1334,17 @@ export default function App() {
   usePolling(async (stopped) => {
     if (!flight || flight.liveOnly || flight.arrival?.actual || Date.now() - loadedAt.current < 60000) return true;
     try {
-      const res = await fetch(`/api/flight?flight=${encodeURIComponent(flight.flight)}&date=${encodeURIComponent(lookupDate(flight))}`);
+      const res = await fetch(apiUrl(tr, `/api/flight?flight=${encodeURIComponent(flight.flight)}&date=${encodeURIComponent(lookupDate(flight))}`));
       if (!res.ok) return false;
       const body = await res.json();
       if (stopped() || body.flight !== flight.flight) return true;
       const diff = [];
-      const cin = (x) => [x.departure?.checkin, x.departure?.checkinZone].filter(Boolean).join(' · אזור ');
-      if (cin(body) && cin(body) !== cin(flight)) diff.push(`דלפקי הצ׳ק-אין עכשיו: ${cin(body)}`);
-      if (body.departure?.terminal && body.departure.terminal !== flight.departure?.terminal) diff.push(`טרמינל ${body.departure.terminal}`);
+      const cin = (x) => [x.departure?.checkin, x.departure?.checkinZone].filter(Boolean).join(` · ${tr('אזור')} `);
+      if (cin(body) && cin(body) !== cin(flight)) diff.push(tr('דלפקי הצ׳ק-אין עכשיו: {desks}', { desks: cin(body) }));
+      if (body.departure?.terminal && body.departure.terminal !== flight.departure?.terminal) diff.push(tr('טרמינל {n}', { n: body.departure.terminal }));
       const t = (x) => x.departure?.estimated || x.departure?.scheduled;
-      if (t(body) && t(flight) && t(body) !== t(flight)) diff.push(`שעת ההמראה עכשיו ${hhmm(t(body))}`);
-      if (body.statusEn !== flight.statusEn && /CANCEL/.test(body.statusEn || '')) diff.push('הטיסה בוטלה');
+      if (t(body) && t(flight) && t(body) !== t(flight)) diff.push(tr('שעת ההמראה עכשיו {time}', { time: hhmm(t(body)) }));
+      if (body.statusEn !== flight.statusEn && /CANCEL/.test(body.statusEn || '')) diff.push(tr('הטיסה בוטלה'));
       setFlight(body);
       if (diff.length) setChanges({ at: Date.now(), items: diff });
     } catch { return false; }
@@ -1334,7 +1377,7 @@ export default function App() {
         const dep = localToInstant(flight.departure.actual || flight.departure.estimated || flight.departure.scheduled, flight.departure.timezone);
         if (dep) q.set('dep', String(Math.round(dep / 60000) * 60000));
       }
-      const res = await fetch(`/api/live?${q}`);
+      const res = await fetch(apiUrl(tr, `/api/live?${q}`));
       const body = await res.json();
       ok = res.ok;
       if (!stopped() && res.ok) setEstimate(body.found ? null : body.estimate || null);
@@ -1360,7 +1403,7 @@ export default function App() {
       if (document.hidden) return;
       try {
         const q = `reg=${encodeURIComponent(reg)}&from=${encodeURIComponent(flight.departure.iata)}&callsign=${encodeURIComponent(flight.callsign || '')}`;
-        const res = await fetch(`/api/inbound?${q}`);
+        const res = await fetch(apiUrl(tr, `/api/inbound?${q}`));
         const body = await res.json();
         if (!stop && res.ok) setInbound(body);
       } catch {}
@@ -1412,14 +1455,14 @@ export default function App() {
       {tab === 'dest' && <DestinationTab f={view} back={() => setTab('flights')} />}
       {tab === 'aircraft' && <AircraftTab f={view} back={() => setTab('flights')} inbound={inbound} now={now} />}
 
-      <p className="small muted" style={{ textAlign: 'center', margin: '20px 0 0' }}><a href="/terms" style={{ color: 'inherit' }}>תנאי שימוש ופרטיות</a> · <a href="/accessibility" style={{ color: 'inherit' }}>הצהרת נגישות</a><br />המידע ממקורות ציבוריים ואינו רשמי. השימוש בו באחריות המשתמש בלבד.</p>
+      <p className="small muted" style={{ textAlign: 'center', margin: '20px 0 0' }}><a href={tr.href('/terms')} style={{ color: 'inherit' }}>{tr('תנאי שימוש ופרטיות')}</a> · <a href={tr.href('/accessibility')} style={{ color: 'inherit' }}>{tr('הצהרת נגישות')}</a><br />{tr('המידע ממקורות ציבוריים ואינו רשמי. השימוש בו באחריות המשתמש בלבד.')}</p>
 
-      <nav className="nav" aria-label="ניווט ראשי">
-        <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon /></span>טיסות</button>
-        <button type="button" className={tab === 'live' ? 'active' : ''} onClick={() => setTab('live')}><span><GaugeIcon /></span>בטיסה</button>
-        <button type="button" className={tab === 'board' ? 'active' : ''} onClick={() => setTab('board')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9h4M7 13h4M7 17h4M15 9h2M15 13h2M15 17h2" /></svg></span>לוח</button>
-        <button type="button" className={tab === 'nearby' ? 'active' : ''} onClick={() => setTab('nearby')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg></span>מעליי</button>
-        <button type="button" className={tab === 'status' ? 'active' : ''} onClick={() => setTab('status')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6l1 1 2-2M3 12l1 1 2-2M3 18h3" /></svg></span>מי טס</button>
+      <nav className="nav" aria-label={tr('ניווט ראשי')}>
+        <button type="button" className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}><span><PlaneIcon flip={tr.dir === 'rtl'} /></span>{tr('טיסות')}</button>
+        <button type="button" className={tab === 'live' ? 'active' : ''} onClick={() => setTab('live')}><span><GaugeIcon /></span>{tr('בטיסה')}</button>
+        <button type="button" className={tab === 'board' ? 'active' : ''} onClick={() => setTab('board')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9h4M7 13h4M7 17h4M15 9h2M15 13h2M15 17h2" /></svg></span>{tr('לוח')}</button>
+        <button type="button" className={tab === 'nearby' ? 'active' : ''} onClick={() => setTab('nearby')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg></span>{tr('מעליי')}</button>
+        <button type="button" className={tab === 'status' ? 'active' : ''} onClick={() => setTab('status')}><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6l1 1 2-2M3 12l1 1 2-2M3 18h3" /></svg></span>{tr('מי טס')}</button>
       </nav>
     </main>
   );

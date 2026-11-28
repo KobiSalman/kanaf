@@ -209,7 +209,7 @@ button:disabled { opacity: 0.6; cursor: default; }
 .dest-top { position: relative; min-height: 150px; }
 .dest-flag { position: absolute; left: 0; top: 0; bottom: 0; width: 46%; clip-path: polygon(0 0, 100% 0, 64% 100%, 0 100%); }
 .dest-flag-shine { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(255,255,255,0) 15%, rgba(255,255,255,0.28) 32%, rgba(255,255,255,0) 48%, rgba(0,0,0,0.10) 68%, rgba(0,0,0,0) 86%); }
-.dest-text { position: relative; width: 62%; padding: 16px 18px 14px 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.dest-text { position: relative; width: 62%; padding: 16px 0 14px; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .dest-text h1 { margin: 8px 0 0; font-size: 34px; font-weight: 800; line-height: 1.05; }
 .dest-country { font-size: 16px; font-weight: 700; color: var(--muted); }
 .dest-sub { font-size: 14px; color: var(--muted); }
@@ -222,7 +222,7 @@ button:disabled { opacity: 0.6; cursor: default; }
 
 /* חותמת עיכוב על כרטיס הטיסה */
 .bp-stamp {
-  position: absolute; left: 12px; top: -18px; z-index: 2; pointer-events: none;
+  position: absolute; inset-inline-end: 12px; top: -18px; z-index: 2; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   padding: 6px 12px; border: 3px solid #D7263D; border-radius: 14px; outline: 1.5px solid #D7263D; outline-offset: 3px;
   color: #D7263D; background: #fff; transform: rotate(-8deg);
@@ -271,7 +271,7 @@ button:disabled { opacity: 0.6; cursor: default; }
 .seg button.on { background: #fff; box-shadow: 0 2px 6px rgba(14, 42, 71, 0.12); }
 
 /* שיתוף קוד בתוך כרטיס הטיסה: מודגש */
-.cs-callout { display: block; margin-top: -4px; padding: 10px 12px; border-radius: 14px; background: #FFE9E1; border: 2px solid #FFB79E; color: #7A2E14; font-size: 14px; font-weight: 600; line-height: 1.55; text-align: right; }
+.cs-callout { display: block; margin-top: -4px; padding: 10px 12px; border-radius: 14px; background: #FFE9E1; border: 2px solid #FFB79E; color: #7A2E14; font-size: 14px; font-weight: 600; line-height: 1.55; text-align: start; }
 .cs-callout b { font-weight: 800; color: #5A1E08; }
 
 /* ניווט ב-Waze */
@@ -289,3 +289,11 @@ button:disabled { opacity: 0.6; cursor: default; }
 /* נגישות: מסגרת ברורה סביב מה שנבחר במקלדת, ופחות תנועה למי שביקש זאת במכשיר */
 :focus-visible { outline: 3px solid #1565C0; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+/* אנגלית (משמאל לימין): הדגל במסך היעד עובר לצד השני, והמטוס בשמיים טס ימינה */
+[dir='ltr'] .dest-flag { left: auto; right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 36% 100%); }
+[dir='ltr'] .flyer { right: auto; left: -60px; scale: -1 1; }
+
+/* מעבר שפה ליד הלוגו */
+.lang-chip { height: 30px; min-width: 34px; padding: 0 9px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid #CFE6F7; border-radius: 999px; background: #fff; color: var(--ink); font-size: 12px; font-weight: 800; text-decoration: none; }
+.lang-chip:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }

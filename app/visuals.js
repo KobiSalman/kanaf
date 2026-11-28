@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useT } from './i18n';
 
 // ---------- שמיים לפי השעה ביעד ----------
 
@@ -95,13 +96,15 @@ function Barcode({ seed }) {
 }
 
 export function BoardingPass({ front, back, seed, label, stamp }) {
+  const tr = useT();
+  const arrow = tr.dir === 'rtl' ? '←' : '→';
   const [flipped, setFlipped] = useState(false);
   return (
     <button
       type="button"
       className={`bp ${flipped ? 'flipped' : ''}`}
       onClick={() => setFlipped((v) => !v)}
-      aria-label={`${label}. לחץ כדי להפוך את הכרטיס`}
+      aria-label={`${label}. ${tr('לחץ כדי להפוך את הכרטיס')}`}
       aria-pressed={flipped}
     >
       <div className="bp-inner">
@@ -117,12 +120,12 @@ export function BoardingPass({ front, back, seed, label, stamp }) {
           <div className="bp-tear" aria-hidden="true" />
           <div className="bp-bottom">
             <Barcode seed={seed} />
-            <span className="small muted">לחץ להפוך ←</span>
+            <span className="small muted">{tr('לחץ להפוך')} {arrow}</span>
           </div>
         </div>
         <div className="bp-face bp-back">
           {back}
-          <span className="small muted" style={{ marginTop: 'auto' }}>לחץ לחזרה ←</span>
+          <span className="small muted" style={{ marginTop: 'auto' }}>{tr('לחץ לחזרה')} {arrow}</span>
         </div>
       </div>
     </button>

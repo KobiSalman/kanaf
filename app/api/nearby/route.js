@@ -2,18 +2,20 @@ import { NextResponse } from 'next/server';
 import { airlineOf, compass } from '../../../lib/aviation';
 import { adsbFetch } from '../../../lib/adsb';
 import { cachedFetch, cdnHeaders, noStore, RateLimited } from '../../../lib/cache';
-import { fullBoard, parseFlight } from '../../../lib/iaa';
+import { fullBoard, parseFlight, titleCase } from '../../../lib/iaa';
 import { localToInstant } from '../../../lib/time';
+import { tOf } from '../../../lib/i18nServer';
 
 // "מה טס מעליי": כל המטוסים ברדיוס של כ-46 ק״מ, בזמן אמת מ-adsb.lol, דרך המטמון המשותף.
 const RADIUS_NM = 25;
 
 export async function GET(request) {
+  const t = tOf(request);
   const { searchParams } = new URL(request.url);
   const lat = Number(searchParams.get('lat'));
   const lon = Number(searchParams.get('lon'));
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-    return NextResponse.json({ error: 'מיקום לא תקין' }, { status: 400, headers: noStore });
+    return NextResponse.json({ error: t('מיקום לא תקין') }, { status: 400, headers: noStore });
   }
   // עיגול המיקום לכ-2 ק״מ: גם פרטיות וגם מטמון משותף לשכנים
   const rl = Math.round(lat * 50) / 50, ro = Math.round(lon * 50) / 50;
@@ -27,10 +29,10 @@ export async function GET(request) {
     });
   } catch (e) {
     const busy = e instanceof RateLimited;
-    return NextResponse.json({ error: busy ? 'שירות המיקום החי עמוס כרגע. ננסה שוב בעוד רגע.' : 'לא הצלחנו לקבל את המטוסים באזור. נסה שוב בעוד רגע.', busy },
+    return NextResponse.json({ error: busy ? t('שירות המיקום החי עמוס כרגע. ננסה שוב בעוד רגע.') : t('לא הצלחנו לקבל את המטוסים באזור. נסה שוב בעוד רגע.'), busy },
       { status: busy ? 503 : 502, headers: noStore });
   }
-  return NextResponse.json({ ...r.value, stale: r.stale }, { headers: cdnHeaders(30, 30) });
+  return NextResponse.json({ ...localizeNearby(r.value, t), stale: r.stale }, { headers: cdnHeaders(30, 30) });
 }
 
 function buildBody(data) {
@@ -55,7 +57,8 @@ function buildBody(data) {
         lon: Math.round(a.lon * 1000) / 1000,
         track: a.track != null ? Math.round(a.track) : null,
         fromYou: a.dir != null ? compass(a.dir) : null,
-        heading: a.track != null ? compass(a.track) : null
+        heading: a.track != null ? compass(a.track) : null,
+        dir: a.dir != null ? Math.round(a.dir) : null
       };
     })
     .sort((x, y) => x.distKm - y.distKm)
@@ -81,7 +84,23 @@ async function addRoutes(planes) {
       if (diff < bestDiff && diff < 4 * 3600e3) { best = r; bestDiff = diff; }
     }
     if (!best) continue;
-    const tlv = { code: 'TLV', city: 'תל אביב' }, other = { code: best.loc, city: best.city };
+    const tlv = { code: 'TLV', city: 'תל אביב', cityEn: 'Tel Aviv' }, other = { code: best.loc, city: best.city, cityEn: best.cityEn ? titleCase(best.cityEn) : null };
     p.route = best.dir === 'D' ? { from: tlv, to: other } : { from: other, to: tlv };
   }
+}
+
+// השמות במטמון בעברית: באנגלית מתרגמים חברה, כיוון ועיר לפני השליחה
+function localizeNearby(body, t) {
+  if (t.lang === 'he') return body;
+  const city = (c) => (c ? { ...c, city: c.cityEn || t.raw(c.city) } : c);
+  return {
+    ...body,
+    planes: body.planes.map((p) => ({
+      ...p,
+      airline: p.callsign ? airlineOf(p.callsign, t) : p.airline,
+      fromYou: p.dir != null ? compass(p.dir, t) : p.fromYou && t.raw(p.fromYou),
+      heading: p.track != null ? compass(p.track, t) : p.heading && t.raw(p.heading),
+      route: p.route ? { from: city(p.route.from), to: city(p.route.to) } : p.route
+    }))
+  };
 }
